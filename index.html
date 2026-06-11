@@ -695,10 +695,10 @@ function renderDashboard(){
   const rake=ses.reduce((a,s)=>a+(s.rake||0),0);
 
   // EV/spin: media de chips EV por spin (solo sesiones con EV registrado)
-  const sesConEV=ses.filter(s=>s.chips_ev!=null);
-  const totalChipsEV=sesConEV.reduce((a,s)=>a+s.chips_ev,0);
+  const sesConEV=ses.filter(s=>s.chips_ev!=null&&s.num_spins>0);
+  const totalFichas=sesConEV.reduce((a,s)=>a+(s.chips_ev*s.num_spins),0);
   const totalSpinsEV=sesConEV.reduce((a,s)=>a+s.num_spins,0);
-  const evMedio=totalSpinsEV>0?totalChipsEV/totalSpinsEV:null;
+  const evMedio=totalSpinsEV>0?totalFichas/totalSpinsEV:null;
 
   // Party rakeback: calculado automáticamente desde sesiones
   const partyRake=ses.filter(s=>s.sala==='PartyPoker').reduce((a,s)=>a+(s.rake||0),0);
