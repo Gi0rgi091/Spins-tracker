@@ -3,389 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Spins Tracker</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     :root {
-      --bg: #F4F5F9;
-      --surface: #FFFFFF;
-      --border: #E4E7EC;
-      --text: #101828;
-      --muted: #667085;
-      --accent: #4F46E5;
-      --accent-soft: #EEF2FF;
-      --green: #027A48;
-      --green-soft: #ECFDF3;
-      --red: #B42318;
-      --red-soft: #FEF3F2;
-      --party: #E8630A;
-      --wina: #0059A3;
-      --stars: #C41E3A;
-      --header-h: 54px;
-      --nav-h: 62px;
-      --radius: 10px;
+      --bg:#F4F5F9;--surface:#FFF;--border:#E4E7EC;--text:#101828;--muted:#667085;
+      --accent:#4F46E5;--accent-soft:#EEF2FF;
+      --green:#027A48;--green-soft:#ECFDF3;
+      --red:#B42318;--red-soft:#FEF3F2;
+      --party:#E8630A;--wina:#0059A3;--stars:#C41E3A;
+      --header-h:54px;--nav-h:62px;--radius:10px;
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); }
-
-    /* ── SCREENS ── */
-    .screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 20px; }
-    #screen-app { display: none; flex-direction: column; min-height: 100vh; padding: 0; align-items: stretch; justify-content: flex-start; }
-
-    /* ── AUTH CARD ── */
-    .auth-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 32px 28px;
-      width: 100%;
-      max-width: 400px;
-    }
-    .auth-logo { font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 24px; }
-    .auth-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
-    .auth-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
-    .field { margin-bottom: 16px; }
-    .field label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
-    .field input, .field select, .field textarea {
-      width: 100%; padding: 11px 14px;
-      border: 1px solid var(--border); border-radius: 8px;
-      font-family: inherit; font-size: 14px; color: var(--text);
-      background: var(--surface); outline: none;
-      transition: border-color .15s;
-    }
-    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
-    .field textarea { resize: vertical; min-height: 70px; }
-    .field-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 20px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: opacity .15s, background .15s; }
-    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
-    .btn-primary:hover { opacity: .9; }
-    .btn-ghost { background: transparent; color: var(--muted); font-size: 13px; }
-    .btn-ghost:hover { color: var(--text); }
-    .btn-sm { padding: 7px 14px; font-size: 13px; }
-    .btn-danger { background: var(--red-soft); color: var(--red); }
-
-    .error-msg { background: var(--red-soft); color: var(--red); padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
-
-    /* ── APP HEADER ── */
-    .app-header {
-      position: fixed; top: 0; left: 0; right: 0;
-      height: var(--header-h);
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px;
-      z-index: 50;
-    }
-    .header-logo { font-size: 15px; font-weight: 600; }
-    .header-logo span { color: var(--accent); }
-    .header-month { display: flex; align-items: center; gap: 6px; }
-    .month-label { font-size: 13px; font-weight: 500; min-width: 90px; text-align: center; }
-    .month-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; font-size: 16px; }
-    .month-btn:hover { background: var(--bg); }
-    .header-right button { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; }
-
-    /* ── CONTENT AREA ── */
-    .app-content {
-      padding-top: calc(var(--header-h) + 16px);
-      padding-bottom: calc(var(--nav-h) + 16px);
-      padding-left: 16px; padding-right: 16px;
-      flex: 1;
-    }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* ── BOTTOM NAV ── */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: var(--nav-h);
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      display: flex;
-      z-index: 50;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    .nav-item {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 4px; cursor: pointer;
-      color: var(--muted); font-size: 10px; font-weight: 500;
-      transition: color .15s;
-      border: none; background: none; font-family: inherit;
-    }
-    .nav-item.active { color: var(--accent); }
-    .nav-item svg { width: 20px; height: 20px; }
-
-    /* ── SECTION TITLE ── */
-    .section-title { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; margin-top: 20px; }
-    .section-title:first-child { margin-top: 0; }
-
-    /* ── STAT CARDS GRID ── */
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-    }
-    .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 6px; }
-    .stat-value { font-size: 22px; font-weight: 600; letter-spacing: -.5px; }
-    .stat-value.pos { color: var(--green); }
-    .stat-value.neg { color: var(--red); }
-    .stat-value.neutral { color: var(--text); }
-    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-    /* ── CAJERO CARDS ── */
-    .cajero-row { display: flex; flex-direction: column; gap: 8px; }
-    .cajero-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .cajero-left { display: flex; align-items: center; gap: 10px; }
-    .sala-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .cajero-info { }
-    .cajero-name { font-size: 14px; font-weight: 500; }
-    .cajero-type { font-size: 11px; color: var(--muted); }
-    .cajero-saldo { font-size: 18px; font-weight: 600; letter-spacing: -.4px; }
-    .cajero-saldo.pos { color: var(--green); }
-    .cajero-saldo.neg { color: var(--red); }
-    .cajero-edit { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit; }
-    .cajero-edit:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ── SESSION ROWS ── */
-    .session-group { margin-bottom: 4px; }
-    .session-date-header { font-size: 12px; font-weight: 600; color: var(--muted); padding: 12px 0 6px; }
-    .session-row {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      margin-bottom: 6px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-left-width: 3px;
-      cursor: pointer;
-    }
-    .session-row:hover { border-color: var(--accent); }
-    .session-left { }
-    .session-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .sala-badge {
-      font-size: 10px; font-weight: 600; letter-spacing: .06em;
-      padding: 2px 7px; border-radius: 4px; color: #fff;
-    }
-    .stake-badge { font-size: 12px; font-weight: 500; color: var(--muted); }
-    .session-meta { font-size: 12px; color: var(--muted); }
-    .session-right { text-align: right; }
-    .session-benefit { font-size: 16px; font-weight: 600; letter-spacing: -.3px; }
-    .session-ev { font-size: 12px; color: var(--muted); }
-
-    /* ── ADD SESSION FAB ── */
-    .fab {
-      position: fixed; bottom: calc(var(--nav-h) + 16px); right: 16px;
-      width: 52px; height: 52px;
-      background: var(--accent); color: #fff;
-      border: none; border-radius: 14px;
-      font-size: 24px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 14px rgba(79,70,229,.3);
-      z-index: 40;
-    }
-
-    /* ── EMPTY STATE ── */
-    .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
-    .empty-state p { font-size: 14px; margin-top: 8px; }
-
-    /* ── MOV ROWS ── */
-    .mov-row {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      margin-bottom: 6px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .mov-left { }
-    .mov-tipo { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .08em; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; margin-bottom: 4px; }
-    .mov-tipo.ingreso { background: var(--green-soft); color: var(--green); }
-    .mov-tipo.retirada { background: var(--red-soft); color: var(--red); }
-    .mov-tipo.transferencia { background: var(--accent-soft); color: var(--accent); }
-    .mov-ruta { font-size: 12px; color: var(--muted); }
-    .mov-fecha { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .mov-cantidad { font-size: 16px; font-weight: 600; }
-    .mov-cantidad.ingreso { color: var(--green); }
-    .mov-cantidad.retirada { color: var(--red); }
-
-    /* ── PROMO ROWS ── */
-    .promo-row {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      margin-bottom: 6px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .promo-label { font-size: 14px; font-weight: 500; }
-    .promo-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .promo-cantidad { font-size: 16px; font-weight: 600; color: var(--green); }
-
-    /* ── MODALS ── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.4);
-      z-index: 100; display: none;
-      align-items: flex-end; justify-content: center;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-sheet {
-      background: var(--surface);
-      border-radius: 16px 16px 0 0;
-      width: 100%; max-width: 540px;
-      max-height: 92vh; overflow-y: auto;
-      padding: 20px 20px 32px;
-    }
-    .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
-    .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 20px; }
-    .modal-footer { display: flex; gap: 10px; margin-top: 20px; }
-    .modal-footer .btn { flex: 1; }
-
-    /* ── PILL SELECTOR ── */
-    .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
-    .pill {
-      padding: 7px 14px; border-radius: 20px;
-      border: 1px solid var(--border);
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      background: var(--surface); color: var(--muted);
-      font-family: inherit; transition: all .12s;
-    }
-    .pill.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-    .pill.party.selected { background: #FFF3ED; border-color: var(--party); color: var(--party); }
-    .pill.wina.selected { background: #EFF6FF; border-color: var(--wina); color: var(--wina); }
-    .pill.stars.selected { background: #FFF1F2; border-color: var(--stars); color: var(--stars); }
-
-    /* ── CALC DISPLAY ── */
-    .calc-display {
-      background: var(--bg); border-radius: 8px;
-      padding: 12px 14px; margin-bottom: 16px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .calc-display .calc-label { font-size: 12px; color: var(--muted); }
-    .calc-display .calc-value { font-size: 15px; font-weight: 600; }
-
-    /* ── ANALYSIS ── */
-    .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .chart-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 14px; letter-spacing: .05em; text-transform: uppercase; }
-    .chart-wrap { height: 200px; position: relative; }
-    .analysis-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-    .filter-pill {
-      padding: 5px 12px; border-radius: 16px;
-      border: 1px solid var(--border);
-      font-size: 12px; font-weight: 500; cursor: pointer;
-      background: var(--surface); color: var(--muted);
-      font-family: inherit;
-    }
-    .filter-pill.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-
-    /* ── TOAST ── */
-    #toast {
-      position: fixed; bottom: calc(var(--nav-h) + 12px); left: 50%; transform: translateX(-50%);
-      background: #1a1a2e; color: #fff;
-      padding: 10px 18px; border-radius: 8px;
-      font-size: 13px; font-weight: 500;
-      z-index: 200; opacity: 0; transition: opacity .2s;
-      white-space: nowrap; pointer-events: none;
-    }
-    #toast.show { opacity: 1; }
-
-    /* ── DETAIL PANEL ── */
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
-    .detail-item { }
-    .detail-item-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
-    .detail-item-value { font-size: 15px; font-weight: 500; }
-
-    /* ── CONFIRM MODAL ── */
-    #modal-confirm .modal-sheet { max-height: 50vh; }
-
-    /* ── RESPONSIVE DESKTOP ── */
-    @media (min-width: 640px) {
-      .app-content { max-width: 600px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
-      .bottom-nav { justify-content: center; }
-      .bottom-nav .nav-item { max-width: 100px; }
-      .fab { right: calc(50% - 300px + 16px); }
-      .modal-overlay { align-items: center; }
-      .modal-sheet { border-radius: 16px; max-height: 85vh; }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    .screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+    #screen-app{display:none;flex-direction:column;min-height:100vh;padding:0;align-items:stretch}
+    .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px 28px;width:100%;max-width:400px}
+    .auth-logo{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:24px}
+    .auth-title{font-size:22px;font-weight:600;margin-bottom:6px}
+    .auth-sub{font-size:14px;color:var(--muted);margin-bottom:28px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px}
+    .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+    .field input[readonly]{background:var(--bg);cursor:default;color:var(--muted)}
+    .field textarea{resize:vertical;min-height:60px}
+    .field-hint{font-size:11px;color:var(--muted);margin-top:3px}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 20px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:opacity .15s}
+    .btn-primary{background:var(--accent);color:#fff;width:100%}
+    .btn-primary:hover{opacity:.9}
+    .btn-ghost{background:transparent;color:var(--muted);font-size:13px}
+    .btn-danger{background:var(--red-soft);color:var(--red)}
+    .btn-sm{padding:7px 14px;font-size:13px}
+    .error-msg{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+    .app-header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:50}
+    .header-logo{font-size:15px;font-weight:600}
+    .header-logo span{color:var(--accent)}
+    .header-month{display:flex;align-items:center;gap:4px}
+    .month-label{font-size:13px;font-weight:500;min-width:88px;text-align:center}
+    .month-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:16px}
+    .header-right button{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px}
+    .app-content{padding-top:calc(var(--header-h) + 14px);padding-bottom:calc(var(--nav-h) + 14px);padding-left:16px;padding-right:16px;flex:1}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+    .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--muted);font-size:10px;font-weight:500;transition:color .15s;border:none;background:none;font-family:inherit}
+    .nav-item.active{color:var(--accent)}
+    .nav-item svg{width:20px;height:20px}
+    .section-title{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;margin-top:18px}
+    .section-title:first-child{margin-top:0}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px}
+    .stat-label{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:5px}
+    .stat-value{font-size:20px;font-weight:600;letter-spacing:-.4px}
+    .stat-value.pos{color:var(--green)}
+    .stat-value.neg{color:var(--red)}
+    .stat-value.neutral{color:var(--text)}
+    .stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+    .cajero-row{display:flex;flex-direction:column;gap:7px}
+    .cajero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;display:flex;align-items:center;justify-content:space-between}
+    .cajero-left{display:flex;align-items:center;gap:9px}
+    .sala-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .cajero-name{font-size:14px;font-weight:500}
+    .cajero-type{font-size:11px;color:var(--muted)}
+    .cajero-saldo{font-size:17px;font-weight:600;letter-spacing:-.3px}
+    .cajero-saldo.pos{color:var(--green)}
+    .cajero-saldo.neg{color:var(--red)}
+    .cajero-edit{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:inherit}
+    .cajero-edit:hover{border-color:var(--accent);color:var(--accent)}
+    .session-date-header{font-size:12px;font-weight:600;color:var(--muted);padding:10px 0 5px}
+    .session-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;border-left-width:3px;cursor:pointer}
+    .session-row:active{opacity:.8}
+    .session-top{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+    .sala-badge{font-size:10px;font-weight:600;letter-spacing:.05em;padding:2px 6px;border-radius:4px;color:#fff}
+    .stake-badge{font-size:12px;font-weight:500;color:var(--muted)}
+    .session-meta{font-size:12px;color:var(--muted)}
+    .session-right{text-align:right;flex-shrink:0;padding-left:10px}
+    .session-benefit{font-size:15px;font-weight:600;letter-spacing:-.3px}
+    .session-ev{font-size:11px;color:var(--muted)}
+    .empty-state{text-align:center;padding:44px 20px;color:var(--muted)}
+    .empty-state p{font-size:14px;margin-top:6px}
+    .mov-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between}
+    .mov-tipo{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.07em;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-bottom:3px}
+    .mov-tipo.ingreso{background:var(--green-soft);color:var(--green)}
+    .mov-tipo.retirada{background:var(--red-soft);color:var(--red)}
+    .mov-tipo.transferencia{background:var(--accent-soft);color:var(--accent)}
+    .mov-ruta{font-size:12px;color:var(--muted)}
+    .mov-fecha{font-size:11px;color:var(--muted);margin-top:1px}
+    .mov-cantidad{font-size:15px;font-weight:600}
+    .mov-cantidad.ingreso{color:var(--green)}
+    .mov-cantidad.retirada{color:var(--red)}
+    .promo-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between}
+    .promo-badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);margin-bottom:3px;display:inline-block}
+    .promo-meta{font-size:12px;color:var(--muted)}
+    .promo-cantidad{font-size:15px;font-weight:600;color:var(--green)}
+    .sub-tabs{display:flex;gap:6px;margin-bottom:14px}
+    .sub-tab-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+    .sub-tab-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .fab{position:fixed;bottom:calc(var(--nav-h) + 14px);right:16px;width:52px;height:52px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(79,70,229,.3);z-index:40}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:none;align-items:flex-end;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal-sheet{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;padding:18px 18px 32px}
+    .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px}
+    .modal-title{font-size:17px;font-weight:600;margin-bottom:18px}
+    .modal-footer{display:flex;gap:8px;margin-top:18px}
+    .modal-footer .btn{flex:1}
+    .pill-group{display:flex;flex-wrap:wrap;gap:5px}
+    .pill{padding:6px 13px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--muted);font-family:inherit;transition:all .12s}
+    .pill.selected{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .pill.party.selected{background:#FFF3ED;border-color:var(--party);color:var(--party)}
+    .pill.wina.selected{background:#EFF6FF;border-color:var(--wina);color:var(--wina)}
+    .pill.stars.selected{background:#FFF1F2;border-color:var(--stars);color:var(--stars)}
+    .calc-display{background:var(--bg);border-radius:8px;padding:11px 13px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .calc-label{font-size:11px;color:var(--muted)}
+    .calc-value{font-size:15px;font-weight:600}
+    .nivel-card{background:var(--bg);border-radius:8px;padding:12px;margin-bottom:10px}
+    .nivel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .nivel-label{font-size:12px;font-weight:600;color:var(--muted)}
+    .nivel-remove{background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0}
+    .nivel-remove:hover{color:var(--red)}
+    .custom-input{display:none;width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;margin-top:7px;outline:none}
+    .custom-input:focus{border-color:var(--accent)}
+    .dia-note{display:none;background:var(--accent-soft);border-radius:7px;padding:8px 11px;font-size:12px;color:var(--accent);margin-top:6px;align-items:center;gap:6px}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+    .chart-title{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:12px;letter-spacing:.08em;text-transform:uppercase}
+    .chart-wrap{height:190px;position:relative}
+    .analysis-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+    .filter-pill{padding:5px 11px;border-radius:16px;border:1px solid var(--border);font-size:12px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--muted);font-family:inherit}
+    .filter-pill.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+    .detail-item-label{font-size:11px;color:var(--muted);margin-bottom:1px}
+    .detail-item-value{font-size:14px;font-weight:500}
+    #toast{position:fixed;bottom:calc(var(--nav-h) + 10px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;z-index:200;opacity:0;transition:opacity .2s;white-space:nowrap;pointer-events:none}
+    #toast.show{opacity:1}
+    @media(min-width:640px){
+      .app-content{max-width:600px;margin:0 auto;padding-left:20px;padding-right:20px}
+      .bottom-nav{justify-content:center}
+      .bottom-nav .nav-item{max-width:100px}
+      .fab{right:calc(50% - 300px + 16px)}
+      .modal-overlay{align-items:center}
+      .modal-sheet{border-radius:16px;max-height:85vh}
     }
   </style>
 </head>
 <body>
 
-<!-- ════════════════════════════════════════
-     SETUP SCREEN
-════════════════════════════════════════ -->
+<!-- SETUP -->
 <div id="screen-setup" class="screen">
   <div class="auth-card">
     <div class="auth-logo">Spins Tracker</div>
     <h1 class="auth-title">Configuración inicial</h1>
     <p class="auth-sub">Introduce las claves de tu proyecto Supabase.</p>
     <div id="setup-error" class="error-msg"></div>
-    <div class="field">
-      <label>Supabase URL</label>
-      <input id="setup-url" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
-      <div class="field-hint">Settings → API → Project URL</div>
-    </div>
-    <div class="field">
-      <label>Supabase Anon Key</label>
-      <input id="setup-key" type="password" placeholder="eyJ..." autocomplete="off">
-      <div class="field-hint">Settings → API → anon / public</div>
-    </div>
+    <div class="field"><label>Supabase URL</label><input id="setup-url" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off"><div class="field-hint">Settings → API → Project URL</div></div>
+    <div class="field"><label>Supabase Anon Key</label><input id="setup-key" type="password" placeholder="eyJ..." autocomplete="off"><div class="field-hint">Settings → API → anon / public</div></div>
     <button class="btn btn-primary" onclick="doSetup()">Guardar y continuar</button>
-    <div style="text-align:center; margin-top:16px;">
-      <button class="btn btn-ghost" onclick="showScreen('login')">Ya tengo credenciales guardadas</button>
-    </div>
+    <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="showScreen('login')">Ya tengo credenciales</button></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     LOGIN SCREEN
-════════════════════════════════════════ -->
+<!-- LOGIN -->
 <div id="screen-login" class="screen">
   <div class="auth-card">
     <div class="auth-logo">Spins Tracker</div>
     <h1 class="auth-title">Bienvenido</h1>
     <p class="auth-sub">Inicia sesión para continuar.</p>
     <div id="login-error" class="error-msg"></div>
-    <div class="field">
-      <label>Email</label>
-      <input id="login-email" type="email" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Contraseña</label>
-      <input id="login-pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
+    <div class="field"><label>Email</label><input id="login-email" type="email" autocomplete="email"></div>
+    <div class="field"><label>Contraseña</label><input id="login-pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
-    <div style="text-align:center; margin-top:16px;">
-      <button class="btn btn-ghost" onclick="showScreen('setup')">Cambiar credenciales</button>
-    </div>
+    <div style="text-align:center;margin-top:14px"><button class="btn btn-ghost" onclick="showScreen('setup')">Cambiar credenciales</button></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     APP
-════════════════════════════════════════ -->
-<div id="screen-app" class="screen" style="padding:0; align-items:stretch; flex-direction:column;">
-
-  <!-- Header -->
+<!-- APP -->
+<div id="screen-app" class="screen" style="padding:0;align-items:stretch;flex-direction:column">
   <header class="app-header">
     <div class="header-logo">Spins <span>Tracker</span></div>
     <div class="header-month">
@@ -393,86 +192,82 @@
       <span class="month-label" id="month-label"></span>
       <button class="month-btn" onclick="changeMonth(1)">›</button>
     </div>
-    <div class="header-right">
-      <button onclick="doLogout()" title="Cerrar sesión">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
-      </button>
-    </div>
+    <div class="header-right"><button onclick="doLogout()" title="Salir"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg></button></div>
   </header>
 
-  <!-- Content -->
   <main class="app-content">
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
       <div class="section-title">Resumen del mes</div>
-      <div class="stats-grid" id="dash-stats">
-        <div class="stat-card"><div class="stat-label">Beneficio</div><div class="stat-value neutral" id="ds-beneficio">—</div></div>
-        <div class="stat-card"><div class="stat-label">Chips EV</div><div class="stat-value neutral" id="ds-ev">—</div></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Beneficio</div><div class="stat-value neutral" id="ds-ben">—</div></div>
+        <div class="stat-card"><div class="stat-label">EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div><div class="stat-sub" id="ds-ev-sub"></div></div>
+        <div class="stat-card"><div class="stat-label">EV Euros</div><div class="stat-value neutral" id="ds-eveur">—</div></div>
         <div class="stat-card"><div class="stat-label">Horas jugadas</div><div class="stat-value neutral" id="ds-horas">—</div></div>
-        <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value neutral" id="ds-sesiones">—</div></div>
+        <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value neutral" id="ds-ses">—</div></div>
+        <div class="stat-card"><div class="stat-label">Rake pagado</div><div class="stat-value neutral" id="ds-rake">—</div><div class="stat-sub" id="ds-rb-est"></div></div>
       </div>
-
+      <div id="party-rb-card" style="display:none;margin-top:10px">
+        <div class="section-title" style="margin-top:0">Rakeback PartyPoker</div>
+        <div class="stat-card" style="border-left:3px solid var(--party)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div class="stat-label">Generado este mes (40% del rake Party)</div>
+              <div id="rb-generado" style="font-size:20px;font-weight:600;color:var(--green);margin:4px 0">—</div>
+              <div id="rb-detalle" style="font-size:12px;color:var(--muted)">—</div>
+            </div>
+            <div id="rb-pendiente-wrap" style="display:none;text-align:right;flex-shrink:0">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Sin registrar</div>
+              <div id="rb-pendiente" style="font-size:16px;font-weight:600;color:var(--party)">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="section-title">Cajeros</div>
       <div id="dash-cajeros" class="cajero-row"></div>
-
       <div class="section-title">Últimas sesiones</div>
       <div id="dash-recent"></div>
     </div>
 
     <!-- SESIONES -->
-    <div id="tab-sesiones" class="tab-content">
-      <div id="sesiones-list"></div>
-    </div>
+    <div id="tab-sesiones" class="tab-content"><div id="sesiones-list"></div></div>
 
     <!-- CAJEROS -->
     <div id="tab-cajeros" class="tab-content">
       <div class="section-title">Saldos actuales</div>
       <div id="cajeros-list" class="cajero-row"></div>
-      <div class="section-title" style="margin-top:20px;">Conversión millas</div>
-      <div class="stat-card" style="margin-top:0;">
-        <div class="stat-label">Millas Winamax</div>
-        <div id="millas-valor" style="font-size:14px; color:var(--muted); margin-top:4px;"></div>
-      </div>
+      <div class="section-title">Conversión millas</div>
+      <div class="stat-card"><div class="stat-label">Millas Winamax</div><div id="millas-info" style="font-size:13px;color:var(--muted);margin-top:4px">—</div></div>
     </div>
 
-    <!-- MOVIMIENTOS -->
-    <div id="tab-movimientos" class="tab-content">
-      <div id="movimientos-list"></div>
+    <!-- FINANZAS -->
+    <div id="tab-finanzas" class="tab-content">
+      <div class="sub-tabs">
+        <button class="sub-tab-btn active" id="subtab-btn-mov" onclick="showFinanzasTab('movimientos')">Movimientos</button>
+        <button class="sub-tab-btn" id="subtab-btn-promos" onclick="showFinanzasTab('promos')">Rakeback &amp; Promos</button>
+      </div>
+      <div id="finanzas-movimientos"><div id="movimientos-list"></div></div>
+      <div id="finanzas-promos" style="display:none"><div id="promos-list"></div></div>
     </div>
 
     <!-- ANÁLISIS -->
     <div id="tab-analisis" class="tab-content">
       <div class="analysis-filter" id="analisis-filter">
         <button class="filter-pill active" data-sala="todas" onclick="setAnalisisFilter(this)">Todas</button>
-        <button class="filter-pill" data-sala="PartyPoker" onclick="setAnalisisFilter(this)">PartyPoker</button>
+        <button class="filter-pill" data-sala="PartyPoker" onclick="setAnalisisFilter(this)">Party</button>
         <button class="filter-pill" data-sala="Winamax" onclick="setAnalisisFilter(this)">Winamax</button>
-        <button class="filter-pill" data-sala="PokerStars" onclick="setAnalisisFilter(this)">PokerStars</button>
+        <button class="filter-pill" data-sala="PokerStars" onclick="setAnalisisFilter(this)">Stars</button>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Chips EV media por franja horaria</div>
-        <div class="chart-wrap"><canvas id="chart-hora"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Chips EV media por día de la semana</div>
-        <div class="chart-wrap"><canvas id="chart-dia"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Chips EV media por período del mes</div>
-        <div class="chart-wrap"><canvas id="chart-periodo"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Beneficio acumulado (mes actual)</div>
-        <div class="chart-wrap"><canvas id="chart-acum"></canvas></div>
-      </div>
+      <div class="chart-card"><div class="chart-title">Chips EV media · Franja horaria</div><div class="chart-wrap"><canvas id="chart-hora"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Chips EV media · Día de la semana</div><div class="chart-wrap"><canvas id="chart-dia"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Chips EV media · Período del mes</div><div class="chart-wrap"><canvas id="chart-periodo"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Beneficio acumulado · Mes actual</div><div class="chart-wrap"><canvas id="chart-acum"></canvas></div></div>
     </div>
-
   </main>
 
-  <!-- FAB (sesiones + movimientos) -->
   <button class="fab" id="main-fab" onclick="onFabClick()">+</button>
 
-  <!-- Bottom nav -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
@@ -486,9 +281,9 @@
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75"/></svg>
       Cajeros
     </button>
-    <button class="nav-item" data-tab="movimientos" onclick="showTab('movimientos')">
+    <button class="nav-item" data-tab="finanzas" onclick="showTab('finanzas')">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5"/></svg>
-      Movimientos
+      Finanzas
     </button>
     <button class="nav-item" data-tab="analisis" onclick="showTab('analisis')">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
@@ -497,9 +292,7 @@
   </nav>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODAL NUEVA SESIÓN
-════════════════════════════════════════ -->
+<!-- MODAL SESIÓN -->
 <div id="modal-sesion" class="modal-overlay" onclick="closeModalOnBg(event,'modal-sesion')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -511,92 +304,152 @@
         <button class="pill party" data-sala="PartyPoker" onclick="selectSala(this)">PartyPoker</button>
         <button class="pill wina" data-sala="Winamax" onclick="selectSala(this)">Winamax</button>
         <button class="pill stars" data-sala="PokerStars" onclick="selectSala(this)">PokerStars</button>
+        <button class="pill" data-sala="custom" onclick="selectSala(this)">Otra sala</button>
       </div>
-    </div>
-
-    <div class="field">
-      <label>Stake</label>
-      <div class="pill-group" id="stake-pills">
-        <button class="pill" data-stake="10" onclick="selectStake(this)">€10</button>
-        <button class="pill" data-stake="20" onclick="selectStake(this)">€20</button>
-        <button class="pill" data-stake="25" onclick="selectStake(this)">€25</button>
-        <button class="pill" data-stake="50" onclick="selectStake(this)">€50</button>
-        <button class="pill" data-stake="100" onclick="selectStake(this)">€100</button>
-      </div>
+      <input id="sala-custom-input" class="custom-input" type="text" placeholder="Nombre de la sala" oninput="onCustomSala()">
     </div>
 
     <div class="field-row">
       <div class="field">
-        <label>Fecha</label>
-        <input type="date" id="ses-fecha">
+        <label>Día de poker</label>
+        <input type="date" id="ses-fecha" onchange="sesionDateManuallyChanged=true">
+        <div class="field-hint">La fecha en la que estás ahora</div>
       </div>
       <div class="field">
         <label>Hora fin</label>
-        <input type="time" id="ses-hora-fin" oninput="calcHoraInicio()">
+        <input type="time" id="ses-hora-fin" oninput="onHoraFinInput()">
       </div>
+    </div>
+    <div class="dia-note" id="dia-poker-note">
+      <span>📅</span><span id="dia-poker-text"></span>
     </div>
 
     <div class="field">
       <label>Minutos jugados</label>
       <input type="number" id="ses-minutos" min="1" placeholder="ej. 120" oninput="calcHoraInicio()">
     </div>
+    <div class="calc-display">
+      <div><div class="calc-label">Hora de inicio</div><div class="calc-value" id="ses-hora-ini-calc">—</div></div>
+      <div><div class="calc-label">Duración</div><div class="calc-value" id="ses-dur-calc">—</div></div>
+    </div>
+
+    <!-- NIVEL 1 -->
+    <div class="nivel-card" id="nivel-1">
+      <div class="nivel-header" id="nivel-1-hdr" style="display:none"><span class="nivel-label">Nivel 1</span></div>
+      <div class="field" style="margin-bottom:10px"><label>Stake</label>
+        <div class="pill-group" id="stake-pills-1">
+          <button class="pill" data-stake="10" onclick="selectNivelStake(1,10,this)">€10</button>
+          <button class="pill" data-stake="20" onclick="selectNivelStake(1,20,this)">€20</button>
+          <button class="pill" data-stake="25" onclick="selectNivelStake(1,25,this)">€25</button>
+          <button class="pill" data-stake="50" onclick="selectNivelStake(1,50,this)">€50</button>
+          <button class="pill" data-stake="100" onclick="selectNivelStake(1,100,this)">€100</button>
+          <button class="pill" data-stake="0" onclick="toggleNivelCustom(1,this)">Otro</button>
+        </div>
+        <input id="stake-c-1" class="custom-input" type="number" min="1" step="1" placeholder="Stake personalizado (€)" oninput="onCustomStake(1)">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Nº spins</label><input id="spins-1" type="number" min="1" placeholder="0" oninput="onNivelInput(1)"></div>
+        <div class="field"><label>Ganado (€)</label><input id="ganado-1" type="number" step="0.01" placeholder="0.00" oninput="calcTotales()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Chips EV</label><input id="ev-1" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+        <div class="field"><label>EV euros (€)</label><input id="ev-eur-1" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+      </div>
+    </div>
+
+    <!-- NIVEL 2 -->
+    <div class="nivel-card" id="nivel-2" style="display:none">
+      <div class="nivel-header" id="nivel-2-hdr"><span class="nivel-label">Nivel 2</span><button class="nivel-remove" onclick="removeLastNivel()" title="Quitar">×</button></div>
+      <div class="field" style="margin-bottom:10px"><label>Stake</label>
+        <div class="pill-group" id="stake-pills-2">
+          <button class="pill" data-stake="10" onclick="selectNivelStake(2,10,this)">€10</button>
+          <button class="pill" data-stake="20" onclick="selectNivelStake(2,20,this)">€20</button>
+          <button class="pill" data-stake="25" onclick="selectNivelStake(2,25,this)">€25</button>
+          <button class="pill" data-stake="50" onclick="selectNivelStake(2,50,this)">€50</button>
+          <button class="pill" data-stake="100" onclick="selectNivelStake(2,100,this)">€100</button>
+          <button class="pill" data-stake="0" onclick="toggleNivelCustom(2,this)">Otro</button>
+        </div>
+        <input id="stake-c-2" class="custom-input" type="number" min="1" step="1" placeholder="Stake personalizado (€)" oninput="onCustomStake(2)">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Nº spins</label><input id="spins-2" type="number" min="1" placeholder="0" oninput="onNivelInput(2)"></div>
+        <div class="field"><label>Ganado (€)</label><input id="ganado-2" type="number" step="0.01" placeholder="0.00" oninput="calcTotales()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Chips EV</label><input id="ev-2" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+        <div class="field"><label>EV euros (€)</label><input id="ev-eur-2" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+      </div>
+    </div>
+
+    <!-- NIVEL 3 -->
+    <div class="nivel-card" id="nivel-3" style="display:none">
+      <div class="nivel-header" id="nivel-3-hdr"><span class="nivel-label">Nivel 3</span><button class="nivel-remove" onclick="removeLastNivel()" title="Quitar">×</button></div>
+      <div class="field" style="margin-bottom:10px"><label>Stake</label>
+        <div class="pill-group" id="stake-pills-3">
+          <button class="pill" data-stake="10" onclick="selectNivelStake(3,10,this)">€10</button>
+          <button class="pill" data-stake="20" onclick="selectNivelStake(3,20,this)">€20</button>
+          <button class="pill" data-stake="25" onclick="selectNivelStake(3,25,this)">€25</button>
+          <button class="pill" data-stake="50" onclick="selectNivelStake(3,50,this)">€50</button>
+          <button class="pill" data-stake="100" onclick="selectNivelStake(3,100,this)">€100</button>
+          <button class="pill" data-stake="0" onclick="toggleNivelCustom(3,this)">Otro</button>
+        </div>
+        <input id="stake-c-3" class="custom-input" type="number" min="1" step="1" placeholder="Stake personalizado (€)" oninput="onCustomStake(3)">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Nº spins</label><input id="spins-3" type="number" min="1" placeholder="0" oninput="onNivelInput(3)"></div>
+        <div class="field"><label>Ganado (€)</label><input id="ganado-3" type="number" step="0.01" placeholder="0.00" oninput="calcTotales()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Chips EV</label><input id="ev-3" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+        <div class="field"><label>EV euros (€)</label><input id="ev-eur-3" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+      </div>
+    </div>
+
+    <!-- NIVEL 4 -->
+    <div class="nivel-card" id="nivel-4" style="display:none">
+      <div class="nivel-header" id="nivel-4-hdr"><span class="nivel-label">Nivel 4</span><button class="nivel-remove" onclick="removeLastNivel()" title="Quitar">×</button></div>
+      <div class="field" style="margin-bottom:10px"><label>Stake</label>
+        <div class="pill-group" id="stake-pills-4">
+          <button class="pill" data-stake="10" onclick="selectNivelStake(4,10,this)">€10</button>
+          <button class="pill" data-stake="20" onclick="selectNivelStake(4,20,this)">€20</button>
+          <button class="pill" data-stake="25" onclick="selectNivelStake(4,25,this)">€25</button>
+          <button class="pill" data-stake="50" onclick="selectNivelStake(4,50,this)">€50</button>
+          <button class="pill" data-stake="100" onclick="selectNivelStake(4,100,this)">€100</button>
+          <button class="pill" data-stake="0" onclick="toggleNivelCustom(4,this)">Otro</button>
+        </div>
+        <input id="stake-c-4" class="custom-input" type="number" min="1" step="1" placeholder="Stake personalizado (€)" oninput="onCustomStake(4)">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Nº spins</label><input id="spins-4" type="number" min="1" placeholder="0" oninput="onNivelInput(4)"></div>
+        <div class="field"><label>Ganado (€)</label><input id="ganado-4" type="number" step="0.01" placeholder="0.00" oninput="calcTotales()"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Chips EV</label><input id="ev-4" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+        <div class="field"><label>EV euros (€)</label><input id="ev-eur-4" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
+      </div>
+    </div>
+
+    <button id="add-nivel-btn" onclick="addNivel()" style="background:var(--accent-soft);color:var(--accent);border:1px dashed var(--accent);border-radius:8px;width:100%;padding:9px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:12px">+ Añadir nivel</button>
 
     <div class="calc-display">
-      <div>
-        <div class="calc-label">Hora de inicio (calculada)</div>
-        <div class="calc-value" id="ses-hora-inicio-calc">—</div>
-      </div>
-      <div style="text-align:right;">
-        <div class="calc-label">Duración</div>
-        <div class="calc-value" id="ses-duracion-calc">—</div>
-      </div>
+      <div><div class="calc-label">Apostado total</div><div class="calc-value" id="tot-apost">—</div></div>
+      <div><div class="calc-label">Ganado total</div><div class="calc-value" id="tot-gan">—</div></div>
+    </div>
+    <div class="calc-display">
+      <div><div class="calc-label">Beneficio</div><div class="calc-value" id="ses-ben-calc">—</div></div>
+      <div><div class="calc-label">ROI</div><div class="calc-value" id="ses-roi-calc">—</div></div>
     </div>
 
     <div class="field-row">
-      <div class="field">
-        <label>Nº de spins</label>
-        <input type="number" id="ses-spins" min="1" placeholder="0" oninput="calcApostado()">
-      </div>
-      <div class="field">
-        <label>Total apostado (€)</label>
-        <input type="number" id="ses-apostado" min="0" step="0.01" placeholder="0.00" oninput="calcBeneficio()">
-      </div>
+      <div class="field"><label>Rake pagado (€) <span style="font-size:10px;color:var(--muted)">(auto 7%)</span></label><input id="ses-rake" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field"><!-- spacer --></div>
     </div>
-
-    <div class="field">
-      <label>Ganado (€)</label>
-      <input type="number" id="ses-ganado" min="0" step="0.01" placeholder="0.00" oninput="calcBeneficio()">
-    </div>
-
-    <div class="calc-display">
-      <div>
-        <div class="calc-label">Beneficio neto</div>
-        <div class="calc-value" id="ses-beneficio-calc">—</div>
-      </div>
-      <div style="text-align:right;">
-        <div class="calc-label">ROI</div>
-        <div class="calc-value" id="ses-roi-calc">—</div>
-      </div>
-    </div>
-
     <div class="field-row">
-      <div class="field">
-        <label>ITM %</label>
-        <input type="number" id="ses-itm" min="0" max="100" step="0.1" placeholder="33.3">
-      </div>
-      <div class="field">
-        <label>Chips EV</label>
-        <input type="number" id="ses-ev" step="0.01" placeholder="0.00">
-      </div>
+      <div class="field"><label>ITM (nº spins ganados)</label><input id="ses-itm-count" type="number" min="0" placeholder="0" oninput="calcItmPct()"></div>
+      <div class="field"><label>ITM %</label><input id="ses-itm-pct" readonly placeholder="—"></div>
     </div>
-
-    <div class="field">
-      <label>Notas (opcional)</label>
-      <textarea id="ses-notas" placeholder="Observaciones..."></textarea>
-    </div>
-
+    <div class="field"><label>Notas (opcional)</label><textarea id="ses-notas" placeholder="Observaciones..."></textarea></div>
     <div id="sesion-error" class="error-msg"></div>
-
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-sesion')">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="saveSesion()">Guardar sesión</button>
@@ -604,67 +457,44 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODAL DETALLE SESIÓN
-════════════════════════════════════════ -->
+<!-- MODAL DETALLE -->
 <div id="modal-detalle" class="modal-overlay" onclick="closeModalOnBg(event,'modal-detalle')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title" id="detalle-title">Sesión</div>
     <div class="detail-grid" id="detalle-grid"></div>
-    <div id="detalle-notas" style="font-size:13px; color:var(--muted); margin-top:4px; display:none;"></div>
+    <div id="detalle-breakdown" style="margin-top:8px;display:none"></div>
+    <div id="detalle-notas" style="font-size:13px;color:var(--muted);margin-top:6px;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="detalle-delete-btn">Eliminar</button>
+      <button class="btn btn-ghost btn-sm" id="detalle-edit-btn">Editar</button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-detalle')">Cerrar</button>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODAL MOVIMIENTO
-════════════════════════════════════════ -->
+<!-- MODAL MOVIMIENTO -->
 <div id="modal-movimiento" class="modal-overlay" onclick="closeModalOnBg(event,'modal-movimiento')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">Nuevo movimiento</div>
-
-    <div class="field">
-      <label>Tipo</label>
-      <div class="pill-group">
-        <button class="pill selected" data-tipo="ingreso" onclick="selectTipo(this)">Ingreso</button>
-        <button class="pill" data-tipo="retirada" onclick="selectTipo(this)">Retirada</button>
-        <button class="pill" data-tipo="transferencia" onclick="selectTipo(this)">Transferencia</button>
+    <div class="field"><label>Tipo</label>
+      <div class="pill-group" id="mov-tipo-pills">
+        <button class="pill selected" data-tipo="ingreso" onclick="selectMovTipo(this)">Ingreso</button>
+        <button class="pill" data-tipo="retirada" onclick="selectMovTipo(this)">Retirada</button>
+        <button class="pill" data-tipo="transferencia" onclick="selectMovTipo(this)">Transferencia</button>
       </div>
     </div>
-
     <div class="field-row">
-      <div class="field">
-        <label>Origen</label>
-        <input type="text" id="mov-origen" placeholder="ej. Banco, PartyPoker">
-      </div>
-      <div class="field">
-        <label>Destino</label>
-        <input type="text" id="mov-destino" placeholder="ej. Winamax, Banco">
-      </div>
+      <div class="field"><label>Origen</label><input type="text" id="mov-origen" placeholder="ej. Banco, Party"></div>
+      <div class="field"><label>Destino</label><input type="text" id="mov-destino" placeholder="ej. Winamax, Banco"></div>
     </div>
-
     <div class="field-row">
-      <div class="field">
-        <label>Cantidad (€)</label>
-        <input type="number" id="mov-cantidad" min="0" step="0.01" placeholder="0.00">
-      </div>
-      <div class="field">
-        <label>Fecha</label>
-        <input type="date" id="mov-fecha">
-      </div>
+      <div class="field"><label>Cantidad (€)</label><input type="number" id="mov-cantidad" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Fecha</label><input type="date" id="mov-fecha"></div>
     </div>
-
-    <div class="field">
-      <label>Notas (opcional)</label>
-      <input type="text" id="mov-notas" placeholder="">
-    </div>
-
-    <div id="movimiento-error" class="error-msg"></div>
+    <div class="field"><label>Notas (opcional)</label><input type="text" id="mov-notas" placeholder=""></div>
+    <div id="mov-error" class="error-msg"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-movimiento')">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="saveMovimiento()">Guardar</button>
@@ -672,18 +502,52 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODAL EDITAR CAJERO
-════════════════════════════════════════ -->
+<!-- MODAL PROMO -->
+<div id="modal-promo" class="modal-overlay" onclick="closeModalOnBg(event,'modal-promo')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Rakeback / Promo</div>
+    <div class="field"><label>Sala</label>
+      <div class="pill-group" id="promo-sala-pills">
+        <button class="pill party" data-sala="PartyPoker" onclick="selectPromoSala(this)">PartyPoker</button>
+        <button class="pill wina" data-sala="Winamax" onclick="selectPromoSala(this)">Winamax</button>
+        <button class="pill stars" data-sala="PokerStars" onclick="selectPromoSala(this)">PokerStars</button>
+      </div>
+    </div>
+    <div class="field"><label>Tipo</label>
+      <select id="promo-tipo" onchange="onPromoTipoChange()">
+        <option value="rakeback">Rakeback Party (40%)</option>
+        <option value="carrera">Carrera semanal Party</option>
+        <option value="millas">Millas Winamax</option>
+        <option value="otro">Otro / PokerStars</option>
+      </select>
+    </div>
+    <div id="promo-rake-section">
+      <div class="field"><label>Rake generado (€)</label><input id="promo-rake-gen" type="number" step="0.01" placeholder="0.00" oninput="calcPromoRakeback()"></div>
+      <div class="calc-display">
+        <div><div class="calc-label">Rakeback (40%)</div><div class="calc-value" id="promo-rb-calc" style="color:var(--green)">—</div></div>
+      </div>
+    </div>
+    <div class="field"><label id="promo-cant-label">Cantidad (€)</label><input id="promo-cantidad" type="number" step="0.01" placeholder="0.00"></div>
+    <div class="field-row">
+      <div class="field"><label>Fecha</label><input type="date" id="promo-fecha"></div>
+      <div class="field"><label>Descripción (opcional)</label><input type="text" id="promo-desc" placeholder="ej. Semana 23, pos. 2"></div>
+    </div>
+    <div id="promo-error" class="error-msg"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-promo')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="savePromo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAJERO -->
 <div id="modal-cajero" class="modal-overlay" onclick="closeModalOnBg(event,'modal-cajero')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title" id="cajero-modal-title">Ajustar saldo</div>
-    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">Introduce el saldo actual del cajero.</p>
-    <div class="field">
-      <label id="cajero-modal-label">Saldo (€)</label>
-      <input type="number" id="cajero-nuevo-saldo" step="0.01" placeholder="0.00">
-    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Introduce el saldo actual real.</p>
+    <div class="field"><label id="cajero-modal-label">Saldo</label><input type="number" id="cajero-nuevo-saldo" step="0.01" placeholder="0.00"></div>
     <input type="hidden" id="cajero-edit-id">
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-cajero')">Cancelar</button>
@@ -692,14 +556,12 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODAL CONFIRM
-════════════════════════════════════════ -->
+<!-- MODAL CONFIRM -->
 <div id="modal-confirm" class="modal-overlay">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title" id="confirm-title">¿Confirmar?</div>
-    <p id="confirm-text" style="font-size:14px; color:var(--muted); margin-bottom:20px;"></p>
+    <p id="confirm-text" style="font-size:14px;color:var(--muted);margin-bottom:18px"></p>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-confirm')">Cancelar</button>
       <button class="btn btn-danger btn-sm" id="confirm-ok-btn">Eliminar</button>
@@ -707,724 +569,789 @@
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
-<!-- ════════════════════════════════════════
-     JAVASCRIPT
-════════════════════════════════════════ -->
 <script>
-const { createClient } = supabase;
-
-// ── State ──────────────────────────────────────────────────────
-let sb = null;
-let currentTab = 'dashboard';
-let currentMonth = new Date().getMonth();
-let currentYear  = new Date().getFullYear();
-let allSesiones  = [];
-let allMovimientos = [];
-let cajeros      = [];
-let analisisFilter = 'todas';
-let editingSesionId = null;
-let charts = {};
-let selectedSala  = null;
-let selectedStake = null;
-let selectedTipoMov = 'ingreso';
-
+const {createClient} = supabase;
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const SALA_COLOR = { PartyPoker: '#E8630A', Winamax: '#0059A3', PokerStars: '#C41E3A' };
+const STANDARD_SALAS = ['PartyPoker','Winamax','PokerStars'];
+const SALA_COLOR = {PartyPoker:'#E8630A',Winamax:'#0059A3',PokerStars:'#C41E3A'};
+const MAX_NIVELES = 4;
 
-// ── Init ───────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  setTodayDates();
+// ── State ────────────────────────────────────────────────────
+let sb=null, currentTab='dashboard', currentMonth=new Date().getMonth(), currentYear=new Date().getFullYear();
+let allSesiones=[], allMovimientos=[], allPromociones=[], cajeros=[];
+let analisisFilter='todas', finanzasSubTab='movimientos', charts={};
+// Session form state
+let editingSesionId=null, sesionDateManuallyChanged=false;
+let selectedSala=null, selectedNivelStake={1:null,2:null,3:null,4:null}, activeNiveles=1;
+let selectedMovTipo='ingreso', selectedPromoSala=null;
+
+// ── Init ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async ()=>{
   updateMonthLabel();
-  const url = localStorage.getItem('sb_url');
-  const key = localStorage.getItem('sb_key');
-  if (!url || !key) { showScreen('setup'); return; }
-  try {
-    sb = createClient(url, key);
-    const { data: { session } } = await sb.auth.getSession();
-    if (session) { showScreen('app'); await loadAll(); }
+  const url=localStorage.getItem('sb_url'), key=localStorage.getItem('sb_key');
+  if(!url||!key){showScreen('setup');return}
+  try{
+    sb=createClient(url,key);
+    const {data:{session}}=await sb.auth.getSession();
+    if(session){showScreen('app');await loadAll();}
     else showScreen('login');
-  } catch { showScreen('login'); }
+  }catch{showScreen('login')}
 });
 
-function setTodayDates() {
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('ses-fecha').value = today;
-  document.getElementById('mov-fecha').value = today;
+// ── Screens ───────────────────────────────────────────────────
+function showScreen(n){
+  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  document.getElementById('screen-'+n).style.display='flex';
 }
 
-// ── Screens ────────────────────────────────────────────────────
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-  const el = document.getElementById('screen-' + name);
-  el.style.display = name === 'app' ? 'flex' : 'flex';
-}
-
-// ── Auth ───────────────────────────────────────────────────────
-async function doSetup() {
-  const url = document.getElementById('setup-url').value.trim();
-  const key = document.getElementById('setup-key').value.trim();
-  const err = document.getElementById('setup-error');
-  err.style.display = 'none';
-  if (!url || !key) { err.textContent = 'Completa ambos campos.'; err.style.display = 'block'; return; }
-  try {
-    sb = createClient(url, key);
-    const { error } = await sb.from('spins_cajeros').select('id').limit(1);
-    if (error) throw error;
-    localStorage.setItem('sb_url', url);
-    localStorage.setItem('sb_key', key);
+// ── Auth ──────────────────────────────────────────────────────
+async function doSetup(){
+  const url=document.getElementById('setup-url').value.trim(), key=document.getElementById('setup-key').value.trim();
+  const err=document.getElementById('setup-error'); err.style.display='none';
+  if(!url||!key){err.textContent='Completa ambos campos.';err.style.display='block';return}
+  try{
+    sb=createClient(url,key);
+    const {error}=await sb.from('spins_cajeros').select('id').limit(1);
+    if(error)throw error;
+    localStorage.setItem('sb_url',url); localStorage.setItem('sb_key',key);
     showScreen('login');
-  } catch (e) {
-    err.textContent = 'Error: No se pudo conectar. Revisa las credenciales.';
-    err.style.display = 'block';
-  }
+  }catch{err.textContent='No se pudo conectar. Revisa las credenciales.';err.style.display='block'}
 }
-
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  const err   = document.getElementById('login-error');
-  err.style.display = 'none';
-  try {
-    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) throw error;
-    showScreen('app');
-    await loadAll();
-  } catch (e) {
-    err.textContent = 'Email o contraseña incorrectos.';
-    err.style.display = 'block';
-  }
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim(), pass=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-error'); err.style.display='none';
+  try{
+    const {error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error)throw error;
+    showScreen('app'); await loadAll();
+  }catch{err.textContent='Email o contraseña incorrectos.';err.style.display='block'}
 }
+async function doLogout(){await sb.auth.signOut();showScreen('login')}
 
-async function doLogout() {
-  await sb.auth.signOut();
-  showScreen('login');
-}
-
-// ── Load data ──────────────────────────────────────────────────
-async function loadAll() {
-  const [sesRes, cajRes, movRes] = await Promise.all([
-    sb.from('spins_sesiones').select('*').order('fecha', { ascending: false }).order('hora_fin', { ascending: false }),
+// ── Load ──────────────────────────────────────────────────────
+async function loadAll(){
+  const [sR,cR,mR,pR]=await Promise.all([
+    sb.from('spins_sesiones').select('*').order('fecha',{ascending:false}).order('hora_fin',{ascending:false}),
     sb.from('spins_cajeros').select('*').order('sala').order('tipo'),
-    sb.from('spins_movimientos').select('*').order('fecha', { ascending: false })
+    sb.from('spins_movimientos').select('*').order('fecha',{ascending:false}),
+    sb.from('spins_promociones').select('*').order('fecha',{ascending:false})
   ]);
-  allSesiones    = sesRes.data  || [];
-  cajeros        = cajRes.data  || [];
-  allMovimientos = movRes.data  || [];
-  renderCurrentTab();
+  allSesiones=sR.data||[]; cajeros=cR.data||[]; allMovimientos=mR.data||[]; allPromociones=pR.data||[];
+  renderCurrent();
+}
+function renderCurrent(){
+  if(currentTab==='dashboard')renderDashboard();
+  else if(currentTab==='sesiones')renderSesiones();
+  else if(currentTab==='cajeros')renderCajeros();
+  else if(currentTab==='finanzas')renderFinanzas();
+  else if(currentTab==='analisis')renderAnalisis();
 }
 
-function renderCurrentTab() {
-  if (currentTab === 'dashboard')    renderDashboard();
-  if (currentTab === 'sesiones')     renderSesiones();
-  if (currentTab === 'cajeros')      renderCajeros();
-  if (currentTab === 'movimientos')  renderMovimientos();
-  if (currentTab === 'analisis')     renderAnalisis();
+// ── Month ─────────────────────────────────────────────────────
+function changeMonth(d){
+  currentMonth+=d;
+  if(currentMonth>11){currentMonth=0;currentYear++}
+  if(currentMonth<0){currentMonth=11;currentYear--}
+  updateMonthLabel(); renderCurrent();
 }
-
-// ── Month navigation ───────────────────────────────────────────
-function changeMonth(dir) {
-  currentMonth += dir;
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
-  updateMonthLabel();
-  renderCurrentTab();
-}
-
-function updateMonthLabel() {
-  document.getElementById('month-label').textContent = MESES[currentMonth] + ' ' + currentYear;
-}
-
-function getMonthSesiones() {
-  return allSesiones.filter(s => {
-    const d = new Date(s.fecha + 'T00:00:00');
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+function updateMonthLabel(){document.getElementById('month-label').textContent=MESES[currentMonth]+' '+currentYear}
+function getMonthSesiones(){
+  return allSesiones.filter(s=>{
+    const d=new Date(s.fecha+'T00:00:00');
+    return d.getMonth()===currentMonth&&d.getFullYear()===currentYear;
   });
 }
 
-// ── Tab navigation ─────────────────────────────────────────────
-function showTab(name) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.tab === name));
-  document.getElementById('main-fab').style.display = (name === 'cajeros' || name === 'analisis') ? 'none' : 'flex';
-  currentTab = name;
-  if (name === 'dashboard')    renderDashboard();
-  if (name === 'sesiones')     renderSesiones();
-  if (name === 'cajeros')      renderCajeros();
-  if (name === 'movimientos')  renderMovimientos();
-  if (name === 'analisis')     renderAnalisis();
+// ── Tabs ──────────────────────────────────────────────────────
+function showTab(n){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===n));
+  document.getElementById('main-fab').style.display=(n==='cajeros'||n==='analisis')?'none':'flex';
+  currentTab=n;
+  renderCurrent();
 }
-
-function onFabClick() {
-  if (currentTab === 'movimientos') openMovimientoModal();
+function showFinanzasTab(t){
+  finanzasSubTab=t;
+  document.getElementById('subtab-btn-mov').classList.toggle('active',t==='movimientos');
+  document.getElementById('subtab-btn-promos').classList.toggle('active',t==='promos');
+  document.getElementById('finanzas-movimientos').style.display=t==='movimientos'?'block':'none';
+  document.getElementById('finanzas-promos').style.display=t==='promos'?'block':'none';
+}
+function onFabClick(){
+  if(currentTab==='finanzas'&&finanzasSubTab==='promos')openPromoModal();
+  else if(currentTab==='finanzas')openMovimientoModal();
   else openSesionModal();
 }
 
-// ── Dashboard ──────────────────────────────────────────────────
-function renderDashboard() {
-  const ses = getMonthSesiones();
-  const beneficio  = ses.reduce((s, r) => s + (r.ganado - r.total_apostado), 0);
-  const chipsEv    = ses.reduce((s, r) => s + (r.chips_ev || 0), 0);
-  const horas      = ses.reduce((s, r) => s + r.minutos_jugados, 0) / 60;
+// ── Dashboard ─────────────────────────────────────────────────
+function renderDashboard(){
+  const ses=getMonthSesiones();
+  const ben=ses.reduce((a,s)=>a+(s.ganado-s.total_apostado),0);
+  const evEur=ses.reduce((a,s)=>a+(s.ev_euros||0),0);
+  const hrs=ses.reduce((a,s)=>a+s.minutos_jugados,0)/60;
+  const rake=ses.reduce((a,s)=>a+(s.rake||0),0);
 
-  function colorClass(v) { return v > 0 ? 'pos' : v < 0 ? 'neg' : 'neutral'; }
-  function fmtE(v) { return (v >= 0 ? '+' : '') + v.toFixed(2) + '€'; }
+  // EV/spin: media de chips EV por spin (solo sesiones con EV registrado)
+  const sesConEV=ses.filter(s=>s.chips_ev!=null);
+  const totalChipsEV=sesConEV.reduce((a,s)=>a+s.chips_ev,0);
+  const totalSpinsEV=sesConEV.reduce((a,s)=>a+s.num_spins,0);
+  const evMedio=totalSpinsEV>0?totalChipsEV/totalSpinsEV:null;
 
-  document.getElementById('ds-beneficio').textContent = fmtE(beneficio);
-  document.getElementById('ds-beneficio').className   = 'stat-value ' + colorClass(beneficio);
-  document.getElementById('ds-ev').textContent        = fmtE(chipsEv);
-  document.getElementById('ds-ev').className          = 'stat-value ' + colorClass(chipsEv);
-  document.getElementById('ds-horas').textContent     = horas.toFixed(1) + 'h';
-  document.getElementById('ds-horas').className       = 'stat-value neutral';
-  document.getElementById('ds-sesiones').textContent  = ses.length;
-  document.getElementById('ds-sesiones').className    = 'stat-value neutral';
+  // Party rakeback: calculado automáticamente desde sesiones
+  const partyRake=ses.filter(s=>s.sala==='PartyPoker').reduce((a,s)=>a+(s.rake||0),0);
+  const rbGenerado=partyRake*0.40;
+  const rbRegistrado=allPromociones.filter(p=>{
+    const d=new Date(p.fecha+'T00:00:00');
+    return d.getMonth()===currentMonth&&d.getFullYear()===currentYear&&p.sala==='PartyPoker'&&p.tipo==='rakeback';
+  }).reduce((a,p)=>a+p.cantidad,0);
+  const rbPendiente=Math.max(0,rbGenerado-rbRegistrado);
 
-  // Cajeros
-  const dc = document.getElementById('dash-cajeros');
-  dc.innerHTML = renderCajerosHTML(false);
+  function vc(v){return v>0?'pos':v<0?'neg':'neutral'}
+  function fe(v,d=2){return(v>=0?'+':'')+v.toFixed(d)+'€'}
+  function set(id,val,cls){const el=document.getElementById(id);if(el){el.textContent=val;if(cls)el.className='stat-value '+cls}}
 
-  // Recent
-  const recent = allSesiones.slice(0, 5);
-  document.getElementById('dash-recent').innerHTML = recent.length
-    ? recent.map(s => renderSessionRow(s)).join('')
-    : '<div class="empty-state"><p>No hay sesiones aún.<br>Pulsa + para añadir tu primera sesión.</p></div>';
+  set('ds-ben',fe(ben),vc(ben));
+  // EV/spin
+  if(evMedio!==null){
+    set('ds-ev',(evMedio>=0?'+':'')+evMedio.toFixed(3),vc(evMedio));
+    document.getElementById('ds-ev-sub').textContent='fichas/spin · '+sesConEV.length+' ses.';
+  } else {
+    set('ds-ev','—','neutral');
+    document.getElementById('ds-ev-sub').textContent='sin datos EV aún';
+  }
+  set('ds-eveur',fe(evEur),vc(evEur));
+  set('ds-horas',hrs.toFixed(1)+'h','neutral');
+  set('ds-ses',ses.length,'neutral');
+  set('ds-rake',fmtE(rake),'neutral');
+  document.getElementById('ds-rb-est').textContent='';
+
+  // Party rakeback card
+  const rbCard=document.getElementById('party-rb-card');
+  if(partyRake>0){
+    rbCard.style.display='block';
+    document.getElementById('rb-generado').textContent='+'+rbGenerado.toFixed(2)+'€';
+    document.getElementById('rb-detalle').textContent='Rake Party: '+partyRake.toFixed(2)+'€ · Ya registrado: '+rbRegistrado.toFixed(2)+'€';
+    const pw=document.getElementById('rb-pendiente-wrap');
+    if(rbPendiente>=0.01){
+      pw.style.display='block';
+      document.getElementById('rb-pendiente').textContent='+'+rbPendiente.toFixed(2)+'€';
+    } else {
+      pw.style.display='none';
+    }
+  } else {
+    rbCard.style.display='none';
+  }
+
+  document.getElementById('dash-cajeros').innerHTML=renderCajerosHTML(false);
+  const recent=allSesiones.slice(0,5);
+  document.getElementById('dash-recent').innerHTML=recent.length?recent.map(s=>sessionRow(s)).join(''):'<div class="empty-state"><p>Sin sesiones aún.<br>Pulsa + para empezar.</p></div>';
 }
 
-// ── Cajeros ────────────────────────────────────────────────────
-function renderCajerosHTML(withEditBtn = true) {
-  if (!cajeros.length) return '<div class="empty-state"><p>Sin datos de cajeros.</p></div>';
-  return cajeros.map(c => {
-    const color = SALA_COLOR[c.sala] || '#667085';
-    const saldoFmt = c.tipo === 'millas'
-      ? Math.round(c.saldo).toLocaleString('es') + ' millas'
-      : fmtEuro(c.saldo);
-    const saldoClass = c.tipo === 'millas' ? 'neutral' : (c.saldo > 0 ? 'pos' : c.saldo < 0 ? 'neg' : 'neutral');
-    const label = c.tipo === 'real' ? 'Real €' : c.tipo === 'torneo' ? 'T€' : 'Millas';
-    const editBtn = withEditBtn
-      ? `<button class="cajero-edit" onclick="openCajeroModal('${c.id}','${c.sala}','${c.tipo}',${c.saldo})">Ajustar</button>`
-      : '';
-    return `<div class="cajero-card">
-      <div class="cajero-left">
-        <div class="sala-dot" style="background:${color}"></div>
-        <div class="cajero-info">
-          <div class="cajero-name">${c.sala}</div>
-          <div class="cajero-type">${label}</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div class="cajero-saldo ${saldoClass}">${saldoFmt}</div>
-        ${editBtn}
-      </div>
+// ── Cajeros ───────────────────────────────────────────────────
+function renderCajerosHTML(withEdit){
+  if(!cajeros.length)return'<div class="empty-state"><p>Sin cajeros.</p></div>';
+  return cajeros.map(c=>{
+    const color=SALA_COLOR[c.sala]||'#667085';
+    const isMillas=c.tipo==='millas';
+    const saldoStr=isMillas?Math.round(c.saldo).toLocaleString('es')+' millas':fmtE(c.saldo);
+    const cls=isMillas?'neutral':c.saldo>0?'pos':c.saldo<0?'neg':'neutral';
+    const lbl=c.tipo==='real'?'Real €':c.tipo==='torneo'?'T€':'Millas';
+    const editBtn=withEdit?`<button class="cajero-edit" onclick="openCajeroModal('${c.id}','${c.sala}','${c.tipo}',${c.saldo})">Ajustar</button>`:'';
+    return`<div class="cajero-card">
+      <div class="cajero-left"><div class="sala-dot" style="background:${color}"></div><div><div class="cajero-name">${c.sala}</div><div class="cajero-type">${lbl}</div></div></div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="cajero-saldo ${cls}">${saldoStr}</div>${editBtn}</div>
     </div>`;
   }).join('');
 }
-
-function renderCajeros() {
-  document.getElementById('cajeros-list').innerHTML = renderCajerosHTML(true);
-  const millas = cajeros.find(c => c.tipo === 'millas');
-  if (millas) {
-    const euroVal = (millas.saldo / 69000 * 1000).toFixed(0);
-    document.getElementById('millas-valor').innerHTML =
-      `<strong>${Math.round(millas.saldo).toLocaleString('es')} millas</strong> = <strong style="color:var(--green)">${parseInt(euroVal).toLocaleString('es')}€</strong> en torneos<br><span style="font-size:11px;">69.000 millas = 1.000€</span>`;
-  } else {
-    document.getElementById('millas-valor').textContent = 'No hay cajero de millas configurado.';
-  }
+function renderCajeros(){
+  document.getElementById('cajeros-list').innerHTML=renderCajerosHTML(true);
+  const m=cajeros.find(c=>c.tipo==='millas');
+  document.getElementById('millas-info').innerHTML=m?`<strong>${Math.round(m.saldo).toLocaleString('es')} millas</strong> = <strong style="color:var(--green)">${(m.saldo/69000*1000).toFixed(0)}€</strong> en torneos<br><span style="font-size:11px">69.000 millas = 1.000€</span>`:'Sin cajero de millas.';
 }
 
-// ── Sesiones list ──────────────────────────────────────────────
-function renderSesiones() {
-  const ses = getMonthSesiones();
-  if (!ses.length) {
-    document.getElementById('sesiones-list').innerHTML =
-      '<div class="empty-state"><p>Sin sesiones este mes.<br>Pulsa + para registrar una.</p></div>';
-    return;
-  }
-  // Group by date
-  const byDate = {};
-  ses.forEach(s => {
-    if (!byDate[s.fecha]) byDate[s.fecha] = [];
-    byDate[s.fecha].push(s);
-  });
-  let html = '';
-  Object.keys(byDate).sort((a,b) => b.localeCompare(a)).forEach(fecha => {
-    const d = new Date(fecha + 'T00:00:00');
-    const label = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-    html += `<div class="session-date-header">${cap(label)}</div>`;
-    html += byDate[fecha].map(s => renderSessionRow(s)).join('');
-  });
-  document.getElementById('sesiones-list').innerHTML = html;
+// ── Sesiones ──────────────────────────────────────────────────
+function renderSesiones(){
+  const ses=getMonthSesiones();
+  const el=document.getElementById('sesiones-list');
+  if(!ses.length){el.innerHTML='<div class="empty-state"><p>Sin sesiones este mes.<br>Pulsa + para registrar una.</p></div>';return}
+  const byDate={};
+  ses.forEach(s=>{const f=s.fecha;if(!byDate[f])byDate[f]=[];byDate[f].push(s)});
+  el.innerHTML=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(f=>{
+    const d=new Date(f+'T00:00:00');
+    const lbl=cap(d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}));
+    return`<div class="session-date-header">${lbl}</div>`+byDate[f].map(s=>sessionRow(s)).join('');
+  }).join('');
 }
-
-function renderSessionRow(s) {
-  const beneficio = s.ganado - s.total_apostado;
-  const benClass  = beneficio > 0 ? 'pos' : beneficio < 0 ? 'neg' : 'neutral';
-  const color     = SALA_COLOR[s.sala] || '#667085';
-  const horaIni   = calcHoraInicioStr(s.hora_fin, s.minutos_jugados);
-  const evStr     = s.chips_ev != null ? (s.chips_ev >= 0 ? '+' : '') + s.chips_ev.toFixed(2) + ' EV' : '';
-  return `<div class="session-row" style="border-left-color:${color}" onclick="openDetalle('${s.id}')">
-    <div class="session-left">
-      <div class="session-top">
-        <span class="sala-badge" style="background:${color}">${s.sala === 'PokerStars' ? 'Stars' : s.sala}</span>
-        <span class="stake-badge">€${s.stake}</span>
-      </div>
-      <div class="session-meta">${s.num_spins} spins · ${horaIni}–${s.hora_fin?.slice(0,5)} · ${Math.round(s.minutos_jugados/60*10)/10}h</div>
+function sessionRow(s){
+  const ben=s.ganado-s.total_apostado;
+  const color=SALA_COLOR[s.sala]||'#667085';
+  const horaIni=calcHoraStr(s.hora_fin,s.minutos_jugados);
+  const stakeLabel=s.stake?'€'+s.stake:(s.stakes_breakdown?'Mix':'?');
+  const evStr=s.chips_ev!=null?(s.chips_ev>=0?'+':'')+s.chips_ev.toFixed(2)+' EV':'';
+  const salaShort=s.sala==='PokerStars'?'Stars':s.sala==='PartyPoker'?'Party':s.sala;
+  return`<div class="session-row" style="border-left-color:${color}" onclick="openDetalle('${s.id}')">
+    <div>
+      <div class="session-top"><span class="sala-badge" style="background:${color}">${salaShort}</span><span class="stake-badge">${stakeLabel}</span></div>
+      <div class="session-meta">${s.num_spins} spins · ${horaIni}–${(s.hora_fin||'').slice(0,5)} · ${(s.minutos_jugados/60).toFixed(1)}h</div>
     </div>
     <div class="session-right">
-      <div class="session-benefit ${benClass}">${beneficio >= 0 ? '+' : ''}${beneficio.toFixed(2)}€</div>
+      <div class="session-benefit ${ben>0?'pos':ben<0?'neg':'neutral'}">${ben>=0?'+':''}${ben.toFixed(2)}€</div>
       <div class="session-ev">${evStr}</div>
     </div>
   </div>`;
 }
 
-// ── Movimientos ────────────────────────────────────────────────
-function renderMovimientos() {
-  const el = document.getElementById('movimientos-list');
-  if (!allMovimientos.length) {
-    el.innerHTML = '<div class="empty-state"><p>Sin movimientos.<br>Pulsa + para añadir un ingreso o retirada.</p></div>';
-    return;
-  }
-  el.innerHTML = allMovimientos.map(m => {
-    const d = new Date(m.fecha + 'T00:00:00');
-    const fecha = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-    const signo = m.tipo === 'ingreso' ? '+' : m.tipo === 'retirada' ? '-' : '';
-    return `<div class="mov-row">
-      <div class="mov-left">
-        <span class="mov-tipo ${m.tipo}">${m.tipo}</span>
-        <div class="mov-ruta">${m.origen} → ${m.destino}</div>
-        <div class="mov-fecha">${fecha}${m.notas ? ' · ' + m.notas : ''}</div>
-      </div>
-      <div class="mov-cantidad ${m.tipo}">${signo}${fmtEuro(m.cantidad)}</div>
+// ── Finanzas ──────────────────────────────────────────────────
+function renderFinanzas(){
+  renderMovimientos(); renderPromos();
+  document.getElementById('finanzas-movimientos').style.display=finanzasSubTab==='movimientos'?'block':'none';
+  document.getElementById('finanzas-promos').style.display=finanzasSubTab==='promos'?'block':'none';
+}
+function renderMovimientos(){
+  const el=document.getElementById('movimientos-list');
+  if(!allMovimientos.length){el.innerHTML='<div class="empty-state"><p>Sin movimientos.<br>Pulsa + para añadir.</p></div>';return}
+  el.innerHTML=allMovimientos.map(m=>{
+    const d=new Date(m.fecha+'T00:00:00');
+    const f=d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+    const signo=m.tipo==='ingreso'?'+':m.tipo==='retirada'?'-':'';
+    return`<div class="mov-row">
+      <div><span class="mov-tipo ${m.tipo}">${m.tipo}</span><div class="mov-ruta">${m.origen} → ${m.destino}</div><div class="mov-fecha">${f}${m.notas?' · '+m.notas:''}</div></div>
+      <div class="mov-cantidad ${m.tipo}">${signo}${fmtE(m.cantidad)}</div>
+    </div>`;
+  }).join('');
+}
+function renderPromos(){
+  const el=document.getElementById('promos-list');
+  if(!allPromociones.length){el.innerHTML='<div class="empty-state"><p>Sin promos registradas.<br>Pulsa + para añadir.</p></div>';return}
+  el.innerHTML=allPromociones.map(p=>{
+    const d=new Date(p.fecha+'T00:00:00');
+    const f=d.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+    const color=SALA_COLOR[p.sala]||'var(--accent)';
+    const cantStr=p.tipo==='millas'?Math.round(p.cantidad).toLocaleString('es')+' mill.':'+'+fmtE(p.cantidad);
+    return`<div class="promo-row">
+      <div><span class="promo-badge" style="background:${color}20;color:${color}">${p.sala} · ${p.tipo}</span><div class="promo-meta">${f}${p.descripcion?' · '+p.descripcion:''}</div></div>
+      <div class="promo-cantidad">${cantStr}</div>
     </div>`;
   }).join('');
 }
 
-// ── Análisis ───────────────────────────────────────────────────
-function setAnalisisFilter(btn) {
-  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  analisisFilter = btn.dataset.sala;
-  renderAnalisis();
+// ── Análisis ──────────────────────────────────────────────────
+function setAnalisisFilter(btn){
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); analisisFilter=btn.dataset.sala; renderAnalisis();
 }
-
-function renderAnalisis() {
-  let ses = allSesiones.filter(s => s.chips_ev != null);
-  if (analisisFilter !== 'todas') ses = ses.filter(s => s.sala === analisisFilter);
-
-  if (ses.length < 3) {
-    ['hora','dia','periodo'].forEach(id => {
-      const canvas = document.getElementById('chart-' + id);
-      const parent = canvas.parentElement;
-      parent.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;">Necesitas más sesiones para el análisis.</div>';
+function renderAnalisis(){
+  let ses=allSesiones.filter(s=>s.chips_ev!=null);
+  if(analisisFilter!=='todas')ses=ses.filter(s=>s.sala===analisisFilter);
+  const noData='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px">Necesitas más sesiones con EV para el análisis.</div>';
+  if(ses.length<3){
+    ['hora','dia','periodo'].forEach(id=>{
+      const c=document.getElementById('chart-'+id);
+      if(c)c.parentElement.innerHTML=noData;
     });
   } else {
-    buildChartHora(ses);
-    buildChartDia(ses);
-    buildChartPeriodo(ses);
+    buildHora(ses); buildDia(ses); buildPeriodo(ses);
   }
-  buildChartAcum();
+  buildAcum();
+}
+function buildHora(ses){
+  const by={};
+  ses.forEach(s=>{const h=horaIniNum(s.hora_fin,s.minutos_jugados);if(!by[h])by[h]=[];by[h].push(s.chips_ev)});
+  const labels=Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+'h');
+  const data=Array.from({length:24},(_,i)=>by[i]?avg(by[i]):null);
+  buildBar('chart-hora',labels,data);
+}
+function buildDia(ses){
+  const dias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],by={};
+  ses.forEach(s=>{const dow=(new Date(s.fecha+'T00:00:00').getDay()+6)%7;if(!by[dow])by[dow]=[];by[dow].push(s.chips_ev)});
+  buildBar('chart-dia',dias,dias.map((_,i)=>by[i]?avg(by[i]):null));
+}
+function buildPeriodo(ses){
+  const per=['1–10','11–20','21–31'],by={0:[],1:[],2:[]};
+  ses.forEach(s=>{const day=new Date(s.fecha+'T00:00:00').getDate();by[day<=10?0:day<=20?1:2].push(s.chips_ev)});
+  buildBar('chart-periodo',per,[0,1,2].map(i=>by[i].length?avg(by[i]):null));
+}
+function buildAcum(){
+  const ses=getMonthSesiones().sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora_fin.localeCompare(b.hora_fin));
+  if(!ses.length)return;
+  let ac=0; const labels=[],data=[];
+  ses.forEach(s=>{ac+=(s.ganado-s.total_apostado);const d=new Date(s.fecha+'T00:00:00');labels.push(d.getDate()+'/'+(d.getMonth()+1));data.push(parseFloat(ac.toFixed(2)))});
+  if(charts['chart-acum'])charts['chart-acum'].destroy();
+  const ctx=document.getElementById('chart-acum')?.getContext('2d');
+  if(!ctx)return;
+  const col=ac>=0?'#027A48':'#B42318';
+  charts['chart-acum']=new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:col,backgroundColor:col+'20',fill:true,tension:.3,pointRadius:3,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxTicksLimit:8},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>v+'€'},grid:{color:'#E4E7EC'}}}}});
+}
+function buildBar(id,labels,data){
+  if(charts[id])charts[id].destroy();
+  const canvas=document.getElementById(id);
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const colors=data.map(v=>v==null?'#E4E7EC':v>=0?'#027A48CC':'#B42318CC');
+  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:data.map(v=>v??0),backgroundColor:colors,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#E4E7EC'}}}}});
 }
 
-function buildChartHora(ses) {
-  const byHour = {};
-  ses.forEach(s => {
-    const h = getHoraInicio(s.hora_fin, s.minutos_jugados);
-    if (!byHour[h]) byHour[h] = [];
-    byHour[h].push(s.chips_ev);
-  });
-  const labels = Array.from({length:24}, (_,i) => String(i).padStart(2,'0')+'h');
-  const data   = Array.from({length:24}, (_,i) => byHour[i] ? avg(byHour[i]) : null);
-  buildBarChart('chart-hora', labels, data);
-}
+// ── Session Form ──────────────────────────────────────────────
+function openSesionModal(sesion=null){
+  editingSesionId=sesion?.id||null;
+  sesionDateManuallyChanged=false;
+  document.getElementById('sesion-modal-title').textContent=sesion?'Editar sesión':'Nueva sesión';
+  document.getElementById('sesion-error').style.display='none';
+  document.getElementById('dia-poker-note').style.display='none';
+  // Reset sala
+  document.querySelectorAll('#sala-pills .pill').forEach(p=>p.classList.remove('selected'));
+  document.getElementById('sala-custom-input').style.display='none';
+  selectedSala=null;
+  // Reset niveles
+  activeNiveles=1;
+  for(let i=1;i<=MAX_NIVELES;i++){
+    document.getElementById('nivel-'+i).style.display=i===1?'block':'none';
+    document.getElementById('nivel-'+i+'-hdr').style.display='none';
+    document.querySelectorAll(`#stake-pills-${i} .pill`).forEach(p=>p.classList.remove('selected'));
+    document.getElementById('stake-c-'+i).style.display='none';
+    document.getElementById('stake-c-'+i).value='';
+    selectedNivelStake[i]=null;
+    const ids=['spins','ganado','ev','ev-eur'];
+    ids.forEach(f=>{const el=document.getElementById(f+'-'+i);if(el)el.value=''});
+  }
+  document.getElementById('add-nivel-btn').style.display='block';
+  document.getElementById('ses-rake').value='';
+  document.getElementById('ses-itm-count').value='';
+  document.getElementById('ses-itm-pct').value='';
+  document.getElementById('ses-notas').value='';
+  document.getElementById('tot-apost').textContent='—';
+  document.getElementById('tot-gan').textContent='—';
+  document.getElementById('ses-ben-calc').textContent='—';
+  document.getElementById('ses-roi-calc').textContent='—';
 
-function buildChartDia(ses) {
-  const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  const byDia = {};
-  ses.forEach(s => {
-    const d = new Date(s.fecha + 'T00:00:00');
-    const dow = (d.getDay() + 6) % 7; // 0=Lun
-    if (!byDia[dow]) byDia[dow] = [];
-    byDia[dow].push(s.chips_ev);
-  });
-  const data = dias.map((_, i) => byDia[i] ? avg(byDia[i]) : null);
-  buildBarChart('chart-dia', dias, data);
-}
-
-function buildChartPeriodo(ses) {
-  const periodos = ['1–10', '11–20', '21–31'];
-  const byP = { 0: [], 1: [], 2: [] };
-  ses.forEach(s => {
-    const day = new Date(s.fecha + 'T00:00:00').getDate();
-    const idx = day <= 10 ? 0 : day <= 20 ? 1 : 2;
-    byP[idx].push(s.chips_ev);
-  });
-  const data = [0,1,2].map(i => byP[i].length ? avg(byP[i]) : null);
-  buildBarChart('chart-periodo', periodos, data);
-}
-
-function buildChartAcum() {
-  const ses = getMonthSesiones().sort((a,b) => a.fecha.localeCompare(b.fecha) || a.hora_fin.localeCompare(b.hora_fin));
-  if (!ses.length) return;
-  let acum = 0;
-  const labels = [];
-  const data   = [];
-  ses.forEach(s => {
-    acum += (s.ganado - s.total_apostado);
-    const d = new Date(s.fecha + 'T00:00:00');
-    labels.push(d.getDate() + '/' + (d.getMonth()+1));
-    data.push(parseFloat(acum.toFixed(2)));
-  });
-
-  if (charts['chart-acum']) charts['chart-acum'].destroy();
-  const ctx = document.getElementById('chart-acum').getContext('2d');
-  const color = acum >= 0 ? '#027A48' : '#B42318';
-  charts['chart-acum'] = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ data, borderColor: color, backgroundColor: color + '20', fill: true, tension: .3, pointRadius: 3, borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: {
-      x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 }, grid: { display: false } },
-      y: { ticks: { font: { size: 10 }, callback: v => v + '€' }, grid: { color: '#E4E7EC' } }
-    }}
-  });
-}
-
-function buildBarChart(id, labels, data) {
-  if (charts[id]) charts[id].destroy();
-  const canvas = document.getElementById(id);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const colors = data.map(v => v == null ? '#E4E7EC' : v >= 0 ? '#027A48CC' : '#B42318CC');
-  charts[id] = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data: data.map(v => v ?? 0), backgroundColor: colors, borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: {
-      x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-      y: { ticks: { font: { size: 10 }, callback: v => v.toFixed(0) }, grid: { color: '#E4E7EC' } }
-    }}
-  });
-}
-
-// ── Session Modal ──────────────────────────────────────────────
-function openSesionModal(sesion = null) {
-  editingSesionId = sesion?.id || null;
-  document.getElementById('sesion-modal-title').textContent = sesion ? 'Editar sesión' : 'Nueva sesión';
-  document.getElementById('sesion-error').style.display = 'none';
-
-  // Reset pills
-  document.querySelectorAll('#sala-pills .pill').forEach(p => p.classList.remove('selected'));
-  document.querySelectorAll('#stake-pills .pill').forEach(p => p.classList.remove('selected'));
-  selectedSala  = null;
-  selectedStake = null;
-
-  if (sesion) {
-    // Pre-fill
-    document.getElementById('ses-fecha').value   = sesion.fecha;
-    document.getElementById('ses-hora-fin').value = sesion.hora_fin?.slice(0,5);
-    document.getElementById('ses-minutos').value  = sesion.minutos_jugados;
-    document.getElementById('ses-spins').value    = sesion.num_spins;
-    document.getElementById('ses-apostado').value = sesion.total_apostado;
-    document.getElementById('ses-ganado').value   = sesion.ganado;
-    document.getElementById('ses-itm').value      = sesion.itm || '';
-    document.getElementById('ses-ev').value       = sesion.chips_ev ?? '';
-    document.getElementById('ses-notas').value    = sesion.notas || '';
-    // Select sala/stake pills
-    document.querySelectorAll('#sala-pills .pill').forEach(p => { if (p.dataset.sala === sesion.sala) { p.classList.add('selected'); selectedSala = sesion.sala; }});
-    document.querySelectorAll('#stake-pills .pill').forEach(p => { if (parseInt(p.dataset.stake) === sesion.stake) { p.classList.add('selected'); selectedStake = sesion.stake; }});
-    calcHoraInicio(); calcBeneficio();
+  if(sesion){
+    setSalaByName(sesion.sala);
+    document.getElementById('ses-fecha').value=sesion.fecha;
+    document.getElementById('ses-hora-fin').value=(sesion.hora_fin||'').slice(0,5);
+    document.getElementById('ses-minutos').value=sesion.minutos_jugados;
+    document.getElementById('ses-rake').value=sesion.rake||'';
+    document.getElementById('ses-itm-count').value=sesion.itm_count||'';
+    document.getElementById('ses-notas').value=sesion.notas||'';
+    if(sesion.stakes_breakdown&&Array.isArray(sesion.stakes_breakdown)){
+      const bd=sesion.stakes_breakdown;
+      activeNiveles=Math.min(bd.length,MAX_NIVELES);
+      bd.slice(0,MAX_NIVELES).forEach((nv,idx)=>{
+        const i=idx+1;
+        if(i>1){document.getElementById('nivel-'+i).style.display='block';document.getElementById('nivel-'+i+'-hdr').style.display='flex'}
+        setNivelStakeByVal(i,nv.stake);
+        document.getElementById('spins-'+i).value=nv.spins||'';
+        document.getElementById('ganado-'+i).value=nv.ganado||'';
+        document.getElementById('ev-'+i).value=nv.chips_ev??'';
+        document.getElementById('ev-eur-'+i).value=nv.ev_euros??'';
+      });
+      if(activeNiveles>1)document.getElementById('nivel-1-hdr').style.display='flex';
+    } else {
+      setNivelStakeByVal(1,sesion.stake);
+      document.getElementById('spins-1').value=sesion.num_spins||'';
+      document.getElementById('ganado-1').value=sesion.ganado||'';
+      document.getElementById('ev-1').value=sesion.chips_ev??'';
+      document.getElementById('ev-eur-1').value=sesion.ev_euros??'';
+    }
+    calcHoraInicio(); calcTotales(); calcItmPct();
   } else {
-    document.getElementById('ses-hora-fin').value = '';
-    document.getElementById('ses-minutos').value  = '';
-    document.getElementById('ses-spins').value    = '';
-    document.getElementById('ses-apostado').value = '';
-    document.getElementById('ses-ganado').value   = '';
-    document.getElementById('ses-itm').value      = '';
-    document.getElementById('ses-ev').value       = '';
-    document.getElementById('ses-notas').value    = '';
-    document.getElementById('ses-hora-inicio-calc').textContent = '—';
-    document.getElementById('ses-duracion-calc').textContent    = '—';
-    document.getElementById('ses-beneficio-calc').textContent   = '—';
-    document.getElementById('ses-roi-calc').textContent         = '—';
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('ses-fecha').value = today;
+    document.getElementById('ses-fecha').value=today();
+    document.getElementById('ses-hora-fin').value='';
+    document.getElementById('ses-minutos').value='';
+    document.getElementById('ses-hora-ini-calc').textContent='—';
+    document.getElementById('ses-dur-calc').textContent='—';
   }
-
   document.getElementById('modal-sesion').classList.add('open');
 }
 
-function selectSala(btn) {
-  document.querySelectorAll('#sala-pills .pill').forEach(p => p.classList.remove('selected'));
+function setSalaByName(sala){
+  selectedSala=sala;
+  const custom=!STANDARD_SALAS.includes(sala);
+  document.querySelectorAll('#sala-pills .pill').forEach(p=>{
+    const match=custom?(p.dataset.sala==='custom'):p.dataset.sala===sala;
+    p.classList.toggle('selected',match);
+  });
+  const ci=document.getElementById('sala-custom-input');
+  if(custom){ci.style.display='block';ci.value=sala}else ci.style.display='none';
+}
+function selectSala(btn){
+  document.querySelectorAll('#sala-pills .pill').forEach(p=>p.classList.remove('selected'));
   btn.classList.add('selected');
-  selectedSala = btn.dataset.sala;
+  const ci=document.getElementById('sala-custom-input');
+  if(btn.dataset.sala==='custom'){ci.style.display='block';ci.focus();selectedSala=null}
+  else{ci.style.display='none';selectedSala=btn.dataset.sala}
 }
+function onCustomSala(){selectedSala=document.getElementById('sala-custom-input').value.trim()||null}
 
-function selectStake(btn) {
-  document.querySelectorAll('#stake-pills .pill').forEach(p => p.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedStake = parseInt(btn.dataset.stake);
-  calcApostado();
+function selectNivelStake(i,stake,btn){
+  document.querySelectorAll('#stake-pills-'+i+' .pill').forEach(p=>p.classList.remove('selected'));
+  if(btn)btn.classList.add('selected');
+  const ci=document.getElementById('stake-c-'+i);
+  if(stake===0){ci.style.display='block';ci.focus();selectedNivelStake[i]=parseFloat(ci.value)||null}
+  else{ci.style.display='none';selectedNivelStake[i]=stake}
+  onNivelInput(i);
 }
-
-function selectTipo(btn) {
-  document.querySelectorAll('#modal-movimiento .pill').forEach(p => p.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedTipoMov = btn.dataset.tipo;
-}
-
-function calcHoraInicio() {
-  const horaFin = document.getElementById('ses-hora-fin').value;
-  const minutos = parseInt(document.getElementById('ses-minutos').value) || 0;
-  if (!horaFin || !minutos) {
-    document.getElementById('ses-hora-inicio-calc').textContent = '—';
-    document.getElementById('ses-duracion-calc').textContent = '—';
-    return;
-  }
-  const ini = calcHoraInicioStr(horaFin + ':00', minutos);
-  document.getElementById('ses-hora-inicio-calc').textContent = ini;
-  const h = Math.floor(minutos / 60);
-  const m = minutos % 60;
-  document.getElementById('ses-duracion-calc').textContent = h > 0 ? `${h}h ${m}min` : `${m} min`;
-}
-
-function calcApostado() {
-  const spins = parseInt(document.getElementById('ses-spins').value) || 0;
-  if (selectedStake && spins) {
-    document.getElementById('ses-apostado').value = (selectedStake * spins).toFixed(2);
-    calcBeneficio();
+function setNivelStakeByVal(i,stake){
+  if(!stake)return;
+  const std=[10,20,25,50,100];
+  if(std.includes(stake)){
+    const pill=document.querySelector(`#stake-pills-${i} [data-stake="${stake}"]`);
+    if(pill){pill.classList.add('selected');selectedNivelStake[i]=stake}
+  } else {
+    document.querySelector(`#stake-pills-${i} [data-stake="0"]`)?.classList.add('selected');
+    const ci=document.getElementById('stake-c-'+i);
+    ci.style.display='block'; ci.value=stake; selectedNivelStake[i]=stake;
   }
 }
+function toggleNivelCustom(i,btn){
+  const ci=document.getElementById('stake-c-'+i);
+  const visible=ci.style.display==='block';
+  if(visible){ci.style.display='none';btn.classList.remove('selected');selectedNivelStake[i]=null}
+  else{document.querySelectorAll('#stake-pills-'+i+' .pill').forEach(p=>p.classList.remove('selected'));btn.classList.add('selected');ci.style.display='block';ci.focus();selectedNivelStake[i]=null}
+}
+function onCustomStake(i){selectedNivelStake[i]=parseFloat(document.getElementById('stake-c-'+i).value)||null;onNivelInput(i)}
 
-function calcBeneficio() {
-  const apostado = parseFloat(document.getElementById('ses-apostado').value) || 0;
-  const ganado   = parseFloat(document.getElementById('ses-ganado').value)   || 0;
-  const ben = ganado - apostado;
-  const roi = apostado > 0 ? (ben / apostado * 100) : 0;
-  const benEl = document.getElementById('ses-beneficio-calc');
-  benEl.textContent = (ben >= 0 ? '+' : '') + ben.toFixed(2) + '€';
-  benEl.style.color = ben > 0 ? 'var(--green)' : ben < 0 ? 'var(--red)' : 'var(--text)';
-  document.getElementById('ses-roi-calc').textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%';
+function addNivel(){
+  if(activeNiveles>=MAX_NIVELES)return;
+  activeNiveles++;
+  document.getElementById('nivel-'+activeNiveles).style.display='block';
+  document.getElementById('nivel-'+activeNiveles+'-hdr').style.display='flex';
+  if(activeNiveles>1)document.getElementById('nivel-1-hdr').style.display='flex';
+  if(activeNiveles>=MAX_NIVELES)document.getElementById('add-nivel-btn').style.display='none';
+  calcTotales();
+}
+function removeLastNivel(){
+  if(activeNiveles<=1)return;
+  document.getElementById('nivel-'+activeNiveles).style.display='none';
+  ['spins','ganado','ev','ev-eur'].forEach(f=>{const el=document.getElementById(f+'-'+activeNiveles);if(el)el.value=''});
+  document.querySelectorAll('#stake-pills-'+activeNiveles+' .pill').forEach(p=>p.classList.remove('selected'));
+  document.getElementById('stake-c-'+activeNiveles).style.display='none';
+  selectedNivelStake[activeNiveles]=null;
+  activeNiveles--;
+  document.getElementById('add-nivel-btn').style.display='block';
+  if(activeNiveles===1)document.getElementById('nivel-1-hdr').style.display='none';
+  calcTotales();
 }
 
-async function saveSesion() {
-  const errEl = document.getElementById('sesion-error');
-  errEl.style.display = 'none';
-
-  if (!selectedSala) { errEl.textContent = 'Selecciona una sala.'; errEl.style.display = 'block'; return; }
-  if (!selectedStake) { errEl.textContent = 'Selecciona un stake.'; errEl.style.display = 'block'; return; }
-
-  const fecha     = document.getElementById('ses-fecha').value;
-  const hora_fin  = document.getElementById('ses-hora-fin').value;
-  const minutos   = parseInt(document.getElementById('ses-minutos').value);
-  const spins     = parseInt(document.getElementById('ses-spins').value);
-  const apostado  = parseFloat(document.getElementById('ses-apostado').value);
-  const ganado    = parseFloat(document.getElementById('ses-ganado').value);
-  const itm       = parseFloat(document.getElementById('ses-itm').value) || null;
-  const ev        = parseFloat(document.getElementById('ses-ev').value);
-  const notas     = document.getElementById('ses-notas').value.trim() || null;
-
-  if (!fecha || !hora_fin || !minutos || !spins || isNaN(apostado) || isNaN(ganado)) {
-    errEl.textContent = 'Completa todos los campos obligatorios.';
-    errEl.style.display = 'block'; return;
+function onHoraFinInput(){
+  const horaFin=document.getElementById('ses-hora-fin').value;
+  if(!horaFin){calcHoraInicio();return}
+  const h=parseInt(horaFin.split(':')[0]);
+  const note=document.getElementById('dia-poker-note');
+  if(h<6){
+    if(!editingSesionId&&!sesionDateManuallyChanged){
+      const d=new Date();d.setDate(d.getDate()-1);
+      document.getElementById('ses-fecha').value=d.toISOString().split('T')[0];
+    }
+    const fechaVal=document.getElementById('ses-fecha').value;
+    const d=new Date(fechaVal+'T00:00:00');
+    document.getElementById('dia-poker-text').textContent='Día de poker: '+cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}));
+    note.style.display='flex';
+  } else {
+    note.style.display='none';
   }
+  calcHoraInicio();
+}
+function calcHoraInicio(){
+  const hf=document.getElementById('ses-hora-fin').value;
+  const min=parseInt(document.getElementById('ses-minutos').value)||0;
+  if(!hf||!min){document.getElementById('ses-hora-ini-calc').textContent='—';document.getElementById('ses-dur-calc').textContent='—';return}
+  document.getElementById('ses-hora-ini-calc').textContent=calcHoraStr(hf+':00',min);
+  const h=Math.floor(min/60),m=min%60;
+  document.getElementById('ses-dur-calc').textContent=h>0?`${h}h ${m}min`:`${m} min`;
+}
 
-  const payload = {
-    fecha, hora_fin: hora_fin + ':00',
-    minutos_jugados: minutos, sala: selectedSala, stake: selectedStake,
-    num_spins: spins, total_apostado: apostado, ganado,
-    itm, chips_ev: isNaN(ev) ? null : ev, notas
+function onNivelInput(i){
+  const stake=selectedNivelStake[i];
+  const spins=parseInt(document.getElementById('spins-'+i)?.value)||0;
+  if(stake&&spins){
+    const apostado=stake*spins;
+    // Only auto-fill if the ganado field is empty (new nivel)
+    // We don't have a separate apostado input - apostado is calculated
+  }
+  calcTotales();
+}
+function calcTotales(){
+  let totAp=0,totGan=0,totEv=null,totEvEur=null;
+  for(let i=1;i<=activeNiveles;i++){
+    const stake=selectedNivelStake[i]||0;
+    const spins=parseInt(document.getElementById('spins-'+i)?.value)||0;
+    totAp+=stake*spins;
+    totGan+=parseFloat(document.getElementById('ganado-'+i)?.value)||0;
+    const ev=parseFloat(document.getElementById('ev-'+i)?.value);
+    const evEur=parseFloat(document.getElementById('ev-eur-'+i)?.value);
+    if(!isNaN(ev))totEv=(totEv||0)+ev;
+    if(!isNaN(evEur))totEvEur=(totEvEur||0)+evEur;
+  }
+  const ben=totGan-totAp, roi=totAp>0?(ben/totAp*100):0;
+  document.getElementById('tot-apost').textContent=fmtE(totAp);
+  document.getElementById('tot-gan').textContent=fmtE(totGan);
+  const benEl=document.getElementById('ses-ben-calc');
+  benEl.textContent=(ben>=0?'+':'')+ben.toFixed(2)+'€';
+  benEl.style.color=ben>0?'var(--green)':ben<0?'var(--red)':'var(--text)';
+  document.getElementById('ses-roi-calc').textContent=(roi>=0?'+':'')+roi.toFixed(2)+'%';
+  // Auto-calc rake 7%
+  const rakeEl=document.getElementById('ses-rake');
+  if(!rakeEl.dataset.manual||rakeEl.dataset.manual==='0')rakeEl.value=totAp>0?(totAp*0.07).toFixed(2):'';
+  calcItmPct();
+}
+function calcItmPct(){
+  let totalSpins=0;
+  for(let i=1;i<=activeNiveles;i++)totalSpins+=parseInt(document.getElementById('spins-'+i)?.value)||0;
+  const itm=parseInt(document.getElementById('ses-itm-count').value)||0;
+  document.getElementById('ses-itm-pct').value=totalSpins>0?(itm/totalSpins*100).toFixed(1)+'%':'—';
+}
+// Mark rake as manual when user types
+document.addEventListener('DOMContentLoaded',()=>{
+  const r=document.getElementById('ses-rake');
+  if(r)r.addEventListener('input',()=>{r.dataset.manual='1'});
+});
+
+async function saveSesion(){
+  const errEl=document.getElementById('sesion-error'); errEl.style.display='none';
+  const sala=selectedSala||document.getElementById('sala-custom-input').value.trim();
+  if(!sala){errEl.textContent='Selecciona una sala.';errEl.style.display='block';return}
+  const fecha=document.getElementById('ses-fecha').value;
+  const hora_fin=document.getElementById('ses-hora-fin').value;
+  const minutos=parseInt(document.getElementById('ses-minutos').value);
+  const rake=parseFloat(document.getElementById('ses-rake').value)||null;
+  const itmCount=parseInt(document.getElementById('ses-itm-count').value)||null;
+  const notas=document.getElementById('ses-notas').value.trim()||null;
+  if(!fecha||!hora_fin||!minutos){errEl.textContent='Fecha, hora fin y minutos son obligatorios.';errEl.style.display='block';return}
+
+  // Build niveles
+  const niveles=[];
+  for(let i=1;i<=activeNiveles;i++){
+    const stake=selectedNivelStake[i];
+    const spins=parseInt(document.getElementById('spins-'+i)?.value)||0;
+    if(!stake&&i===1){errEl.textContent='Selecciona un stake.';errEl.style.display='block';return}
+    if(!spins){errEl.textContent='Introduce el número de spins.';errEl.style.display='block';return}
+    const ganado=parseFloat(document.getElementById('ganado-'+i)?.value);
+    if(isNaN(ganado)){errEl.textContent='Introduce los euros ganados.';errEl.style.display='block';return}
+    const ev=parseFloat(document.getElementById('ev-'+i)?.value);
+    const evEur=parseFloat(document.getElementById('ev-eur-'+i)?.value);
+    niveles.push({stake,spins,apostado:stake*spins,ganado,chips_ev:isNaN(ev)?null:ev,ev_euros:isNaN(evEur)?null:evEur});
+  }
+  const total_apostado=niveles.reduce((a,n)=>a+n.apostado,0);
+  const ganado_total=niveles.reduce((a,n)=>a+n.ganado,0);
+  const chips_ev_total=niveles.reduce((a,n)=>a+(n.chips_ev||0),0);
+  const ev_euros_total=niveles.reduce((a,n)=>a+(n.ev_euros||0),0);
+  const isMulti=activeNiveles>1;
+  const payload={
+    fecha, hora_fin:hora_fin+':00', minutos_jugados:minutos, sala,
+    stake:isMulti?null:niveles[0].stake,
+    num_spins:niveles.reduce((a,n)=>a+n.spins,0),
+    total_apostado, ganado:ganado_total,
+    chips_ev:chips_ev_total||null, ev_euros:ev_euros_total||null,
+    rake, itm_count:itmCount,
+    itm:itmCount&&niveles.reduce((a,n)=>a+n.spins,0)>0?(itmCount/niveles.reduce((a,n)=>a+n.spins,0)*100):null,
+    notas,
+    stakes_breakdown:isMulti?niveles:null
   };
-
-  try {
-    const beneficio = ganado - apostado;
-
-    if (editingSesionId) {
-      // Get old session to reverse its cashier effect
-      const old = allSesiones.find(s => s.id === editingSesionId);
-      const oldBen = old ? (old.ganado - old.total_apostado) : 0;
-      await sb.from('spins_sesiones').update(payload).eq('id', editingSesionId);
-      // Adjust cashier: remove old effect, add new
-      const caj = cajeros.find(c => c.sala === selectedSala && c.tipo === 'real');
-      if (caj) {
-        await sb.from('spins_cajeros').update({ saldo: caj.saldo - oldBen + beneficio, updated_at: new Date().toISOString() }).eq('id', caj.id);
+  const newBen=ganado_total-total_apostado;
+  try{
+    if(editingSesionId){
+      const old=allSesiones.find(s=>s.id===editingSesionId);
+      const oldBen=old?(old.ganado-old.total_apostado):0;
+      await sb.from('spins_sesiones').update(payload).eq('id',editingSesionId);
+      if(STANDARD_SALAS.includes(sala)){
+        const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
+        const oldCaj=old&&STANDARD_SALAS.includes(old.sala)?cajeros.find(c=>c.sala===old.sala&&c.tipo==='real'):null;
+        if(old&&old.sala!==sala&&oldCaj){
+          await sb.from('spins_cajeros').update({saldo:oldCaj.saldo-oldBen,updated_at:new Date().toISOString()}).eq('id',oldCaj.id);
+          if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        } else if(caj){
+          await sb.from('spins_cajeros').update({saldo:caj.saldo-oldBen+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        }
       }
+      showToast('Sesión actualizada ✓');
     } else {
       await sb.from('spins_sesiones').insert([payload]);
-      // Update cashier
-      const caj = cajeros.find(c => c.sala === selectedSala && c.tipo === 'real');
-      if (caj) {
-        await sb.from('spins_cajeros').update({ saldo: caj.saldo + beneficio, updated_at: new Date().toISOString() }).eq('id', caj.id);
+      if(STANDARD_SALAS.includes(sala)){
+        const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
+        if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+      } else {
+        showToast('Sesión guardada ✓ — Actualiza el cajero manualmente');
       }
+      if(STANDARD_SALAS.includes(sala))showToast('Sesión guardada ✓');
     }
-
     closeModal('modal-sesion');
-    showToast('Sesión guardada ✓');
     await loadAll();
-  } catch (e) {
-    errEl.textContent = 'Error al guardar: ' + (e.message || e);
-    errEl.style.display = 'block';
-  }
+  }catch(e){errEl.textContent='Error al guardar: '+(e.message||e);errEl.style.display='block'}
 }
 
-// ── Detalle sesión ─────────────────────────────────────────────
-function openDetalle(id) {
-  const s = allSesiones.find(x => x.id === id);
-  if (!s) return;
-  const ben = s.ganado - s.total_apostado;
-  const roi = s.total_apostado > 0 ? (ben / s.total_apostado * 100).toFixed(2) : '—';
-  const horaIni = calcHoraInicioStr(s.hora_fin, s.minutos_jugados);
-  const color = SALA_COLOR[s.sala] || '#667085';
-  const d = new Date(s.fecha + 'T00:00:00');
-  const fechaStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-  document.getElementById('detalle-title').innerHTML = `<span style="color:${color}">${s.sala}</span> · €${s.stake}`;
-
-  document.getElementById('detalle-grid').innerHTML = `
-    <div class="detail-item"><div class="detail-item-label">Fecha</div><div class="detail-item-value" style="font-size:13px;">${cap(fechaStr)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Horario</div><div class="detail-item-value">${horaIni} – ${s.hora_fin?.slice(0,5)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Duración</div><div class="detail-item-value">${fmtMinutos(s.minutos_jugados)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Spins</div><div class="detail-item-value">${s.num_spins}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Apostado</div><div class="detail-item-value">${fmtEuro(s.total_apostado)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Ganado</div><div class="detail-item-value">${fmtEuro(s.ganado)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">Beneficio</div><div class="detail-item-value" style="color:${ben>=0?'var(--green)':'var(--red)'}">${ben>=0?'+':''}${fmtEuro(ben)}</div></div>
-    <div class="detail-item"><div class="detail-item-label">ROI</div><div class="detail-item-value">${roi}%</div></div>
-    ${s.itm != null ? `<div class="detail-item"><div class="detail-item-label">ITM</div><div class="detail-item-value">${s.itm}%</div></div>` : ''}
-    ${s.chips_ev != null ? `<div class="detail-item"><div class="detail-item-label">Chips EV</div><div class="detail-item-value" style="color:${s.chips_ev>=0?'var(--green)':'var(--red)'}">${s.chips_ev>=0?'+':''}${s.chips_ev.toFixed(2)}</div></div>` : ''}
+// ── Detalle ───────────────────────────────────────────────────
+function openDetalle(id){
+  const s=allSesiones.find(x=>x.id===id); if(!s)return;
+  const ben=s.ganado-s.total_apostado;
+  const color=SALA_COLOR[s.sala]||'#667085';
+  const horaIni=calcHoraStr(s.hora_fin,s.minutos_jugados);
+  const d=new Date(s.fecha+'T00:00:00');
+  const fechaStr=cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+  const itmPct=s.itm!=null?s.itm.toFixed(1)+'%':(s.itm_count&&s.num_spins?(s.itm_count/s.num_spins*100).toFixed(1)+'%':'—');
+  document.getElementById('detalle-title').innerHTML=`<span style="color:${color}">${s.sala}</span>${s.stake?' · €'+s.stake:' · Mix'}`;
+  document.getElementById('detalle-grid').innerHTML=`
+    <div><div class="detail-item-label">Fecha</div><div class="detail-item-value" style="font-size:13px">${fechaStr}</div></div>
+    <div><div class="detail-item-label">Horario</div><div class="detail-item-value">${horaIni} – ${(s.hora_fin||'').slice(0,5)}</div></div>
+    <div><div class="detail-item-label">Duración</div><div class="detail-item-value">${fmtMin(s.minutos_jugados)}</div></div>
+    <div><div class="detail-item-label">Spins</div><div class="detail-item-value">${s.num_spins}</div></div>
+    <div><div class="detail-item-label">Apostado</div><div class="detail-item-value">${fmtE(s.total_apostado)}</div></div>
+    <div><div class="detail-item-label">Ganado</div><div class="detail-item-value">${fmtE(s.ganado)}</div></div>
+    <div><div class="detail-item-label">Beneficio</div><div class="detail-item-value" style="color:${ben>=0?'var(--green)':'var(--red)'}">${ben>=0?'+':''}${fmtE(ben)}</div></div>
+    <div><div class="detail-item-label">ROI</div><div class="detail-item-value">${s.total_apostado>0?((ben/s.total_apostado)*100).toFixed(2)+'%':'—'}</div></div>
+    ${s.rake!=null?`<div><div class="detail-item-label">Rake</div><div class="detail-item-value">${fmtE(s.rake)}</div></div>`:''}
+    ${s.itm_count!=null?`<div><div class="detail-item-label">ITM</div><div class="detail-item-value">${s.itm_count} (${itmPct})</div></div>`:''}
+    ${s.chips_ev!=null?`<div><div class="detail-item-label">Chips EV</div><div class="detail-item-value" style="color:${s.chips_ev>=0?'var(--green)':'var(--red)'}">${s.chips_ev>=0?'+':''}${s.chips_ev.toFixed(2)}</div></div>`:''}
+    ${s.ev_euros!=null?`<div><div class="detail-item-label">EV euros</div><div class="detail-item-value" style="color:${s.ev_euros>=0?'var(--green)':'var(--red)'}">${s.ev_euros>=0?'+':''}${fmtE(s.ev_euros)}</div></div>`:''}
   `;
-
-  const notasEl = document.getElementById('detalle-notas');
-  if (s.notas) { notasEl.textContent = '💬 ' + s.notas; notasEl.style.display = 'block'; }
-  else notasEl.style.display = 'none';
-
-  document.getElementById('detalle-delete-btn').onclick = () => confirmDelete(s.id, s.sala, s.ganado - s.total_apostado);
+  const bd=document.getElementById('detalle-breakdown');
+  if(s.stakes_breakdown&&s.stakes_breakdown.length>1){
+    bd.style.display='block';
+    bd.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Desglose por nivel</div>'+
+      s.stakes_breakdown.map((n,i)=>`<div style="background:var(--bg);border-radius:6px;padding:8px 10px;margin-bottom:5px;font-size:13px"><strong>€${n.stake}</strong> · ${n.spins} spins · ${n.apostado?.toFixed(2)}€ apost. · <span style="color:${(n.ganado-n.apostado)>=0?'var(--green)':'var(--red)'}">${(n.ganado-n.apostado)>=0?'+':''}${(n.ganado-n.apostado).toFixed(2)}€</span>${n.chips_ev!=null?' · EV '+(n.chips_ev>=0?'+':'')+n.chips_ev.toFixed(2):''}</div>`).join('');
+  } else bd.style.display='none';
+  const ne=document.getElementById('detalle-notas');
+  if(s.notas){ne.textContent='💬 '+s.notas;ne.style.display='block'}else ne.style.display='none';
+  document.getElementById('detalle-delete-btn').onclick=()=>confirmDelete(s.id,s.sala,ben);
+  document.getElementById('detalle-edit-btn').onclick=()=>{closeModal('modal-detalle');openSesionModal(s)};
   document.getElementById('modal-detalle').classList.add('open');
 }
-
-function confirmDelete(id, sala, beneficio) {
-  document.getElementById('confirm-title').textContent = 'Eliminar sesión';
-  document.getElementById('confirm-text').textContent = 'Esta acción no se puede deshacer. El cajero de ' + sala + ' se revertirá.';
-  document.getElementById('confirm-ok-btn').onclick = () => deleteSesion(id, sala, beneficio);
+function confirmDelete(id,sala,ben){
+  document.getElementById('confirm-title').textContent='Eliminar sesión';
+  document.getElementById('confirm-text').textContent='Esta acción no se puede deshacer. El cajero de '+sala+' se revertirá.';
+  document.getElementById('confirm-ok-btn').onclick=()=>deleteSesion(id,sala,ben);
   closeModal('modal-detalle');
   document.getElementById('modal-confirm').classList.add('open');
 }
-
-async function deleteSesion(id, sala, beneficio) {
-  try {
-    await sb.from('spins_sesiones').delete().eq('id', id);
-    // Revert cashier
-    const caj = cajeros.find(c => c.sala === sala && c.tipo === 'real');
-    if (caj) {
-      await sb.from('spins_cajeros').update({ saldo: caj.saldo - beneficio, updated_at: new Date().toISOString() }).eq('id', caj.id);
+async function deleteSesion(id,sala,ben){
+  try{
+    await sb.from('spins_sesiones').delete().eq('id',id);
+    if(STANDARD_SALAS.includes(sala)){
+      const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
+      if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo-ben,updated_at:new Date().toISOString()}).eq('id',caj.id);
     }
-    closeModal('modal-confirm');
-    showToast('Sesión eliminada');
-    await loadAll();
-  } catch (e) { showToast('Error al eliminar'); }
+    closeModal('modal-confirm'); showToast('Sesión eliminada'); await loadAll();
+  }catch{showToast('Error al eliminar')}
 }
 
-// ── Movimiento Modal ───────────────────────────────────────────
-function openMovimientoModal() {
-  document.getElementById('movimiento-error').style.display = 'none';
-  document.getElementById('mov-origen').value  = '';
-  document.getElementById('mov-destino').value = '';
-  document.getElementById('mov-cantidad').value = '';
-  document.getElementById('mov-notas').value   = '';
-  document.getElementById('mov-fecha').value   = new Date().toISOString().split('T')[0];
-  document.querySelectorAll('#modal-movimiento .pill').forEach(p => p.classList.remove('selected'));
-  document.querySelector('#modal-movimiento .pill[data-tipo="ingreso"]').classList.add('selected');
-  selectedTipoMov = 'ingreso';
+// ── Movimiento ────────────────────────────────────────────────
+function openMovimientoModal(){
+  document.getElementById('mov-error').style.display='none';
+  ['mov-origen','mov-destino','mov-cantidad','mov-notas'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mov-fecha').value=today();
+  document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
+  document.querySelector('#mov-tipo-pills [data-tipo="ingreso"]').classList.add('selected');
+  selectedMovTipo='ingreso';
   document.getElementById('modal-movimiento').classList.add('open');
 }
-
-async function saveMovimiento() {
-  const errEl = document.getElementById('movimiento-error');
-  errEl.style.display = 'none';
-  const origen   = document.getElementById('mov-origen').value.trim();
-  const destino  = document.getElementById('mov-destino').value.trim();
-  const cantidad = parseFloat(document.getElementById('mov-cantidad').value);
-  const fecha    = document.getElementById('mov-fecha').value;
-  const notas    = document.getElementById('mov-notas').value.trim() || null;
-  if (!origen || !destino || isNaN(cantidad) || !fecha) {
-    errEl.textContent = 'Completa todos los campos obligatorios.'; errEl.style.display = 'block'; return;
-  }
-  try {
-    await sb.from('spins_movimientos').insert([{ fecha, tipo: selectedTipoMov, origen, destino, cantidad, notas }]);
-    closeModal('modal-movimiento');
-    showToast('Movimiento guardado ✓');
-    await loadAll();
-  } catch (e) {
-    errEl.textContent = 'Error al guardar.'; errEl.style.display = 'block';
-  }
+function selectMovTipo(btn){
+  document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
+  btn.classList.add('selected'); selectedMovTipo=btn.dataset.tipo;
+}
+async function saveMovimiento(){
+  const errEl=document.getElementById('mov-error'); errEl.style.display='none';
+  const origen=document.getElementById('mov-origen').value.trim();
+  const destino=document.getElementById('mov-destino').value.trim();
+  const cantidad=parseFloat(document.getElementById('mov-cantidad').value);
+  const fecha=document.getElementById('mov-fecha').value;
+  const notas=document.getElementById('mov-notas').value.trim()||null;
+  if(!origen||!destino||isNaN(cantidad)||!fecha){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return}
+  try{
+    await sb.from('spins_movimientos').insert([{fecha,tipo:selectedMovTipo,origen,destino,cantidad,notas}]);
+    closeModal('modal-movimiento'); showToast('Movimiento guardado ✓'); await loadAll();
+  }catch{errEl.textContent='Error al guardar.';errEl.style.display='block'}
 }
 
-// ── Cajero Modal ───────────────────────────────────────────────
-function openCajeroModal(id, sala, tipo, saldo) {
-  document.getElementById('cajero-modal-title').textContent = sala + ' · ' + (tipo === 'millas' ? 'Millas' : tipo === 'real' ? 'Real €' : 'T€');
-  document.getElementById('cajero-modal-label').textContent = tipo === 'millas' ? 'Millas' : 'Saldo (€)';
-  document.getElementById('cajero-nuevo-saldo').value = saldo;
-  document.getElementById('cajero-nuevo-saldo').step = tipo === 'millas' ? '1' : '0.01';
-  document.getElementById('cajero-nuevo-saldo').placeholder = tipo === 'millas' ? '0' : '0.00';
-  document.getElementById('cajero-edit-id').value = id;
+// ── Promo ─────────────────────────────────────────────────────
+function openPromoModal(){
+  document.getElementById('promo-error').style.display='none';
+  document.querySelectorAll('#promo-sala-pills .pill').forEach(p=>p.classList.remove('selected'));
+  selectedPromoSala=null;
+  document.getElementById('promo-tipo').value='rakeback';
+  document.getElementById('promo-rake-gen').value='';
+  document.getElementById('promo-rb-calc').textContent='—';
+  document.getElementById('promo-cantidad').value='';
+  document.getElementById('promo-fecha').value=today();
+  document.getElementById('promo-desc').value='';
+  onPromoTipoChange();
+  document.getElementById('modal-promo').classList.add('open');
+}
+function selectPromoSala(btn){
+  document.querySelectorAll('#promo-sala-pills .pill').forEach(p=>p.classList.remove('selected'));
+  btn.classList.add('selected'); selectedPromoSala=btn.dataset.sala;
+}
+function onPromoTipoChange(){
+  const tipo=document.getElementById('promo-tipo').value;
+  document.getElementById('promo-rake-section').style.display=tipo==='rakeback'?'block':'none';
+  document.getElementById('promo-cant-label').textContent=tipo==='millas'?'Millas ganadas':'Cantidad (€)';
+  document.getElementById('promo-cantidad').step=tipo==='millas'?'1':'0.01';
+}
+function calcPromoRakeback(){
+  const rake=parseFloat(document.getElementById('promo-rake-gen').value)||0;
+  const rb=(rake*0.40).toFixed(2);
+  document.getElementById('promo-rb-calc').textContent='+'+rb+'€';
+  document.getElementById('promo-cantidad').value=rb;
+}
+async function savePromo(){
+  const errEl=document.getElementById('promo-error'); errEl.style.display='none';
+  const sala=selectedPromoSala;
+  const tipo=document.getElementById('promo-tipo').value;
+  const cantidad=parseFloat(document.getElementById('promo-cantidad').value);
+  const fecha=document.getElementById('promo-fecha').value;
+  const descripcion=document.getElementById('promo-desc').value.trim()||null;
+  if(!sala){errEl.textContent='Selecciona una sala.';errEl.style.display='block';return}
+  if(isNaN(cantidad)||!fecha){errEl.textContent='Introduce cantidad y fecha.';errEl.style.display='block';return}
+  try{
+    await sb.from('spins_promociones').insert([{fecha,sala,tipo,cantidad,descripcion}]);
+    if(tipo==='millas'){
+      const caj=cajeros.find(c=>c.sala==='Winamax'&&c.tipo==='millas');
+      if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+cantidad,updated_at:new Date().toISOString()}).eq('id',caj.id);
+    }
+    closeModal('modal-promo'); showToast('Promo guardada ✓'); await loadAll();
+  }catch(e){errEl.textContent='Error al guardar.';errEl.style.display='block'}
+}
+
+// ── Cajero ────────────────────────────────────────────────────
+function openCajeroModal(id,sala,tipo,saldo){
+  document.getElementById('cajero-modal-title').textContent=sala+' · '+(tipo==='millas'?'Millas':tipo==='real'?'Real €':'T€');
+  document.getElementById('cajero-modal-label').textContent=tipo==='millas'?'Millas':'Saldo (€)';
+  document.getElementById('cajero-nuevo-saldo').value=saldo;
+  document.getElementById('cajero-nuevo-saldo').step=tipo==='millas'?'1':'0.01';
+  document.getElementById('cajero-edit-id').value=id;
   document.getElementById('modal-cajero').classList.add('open');
 }
-
-async function saveCajero() {
-  const id    = document.getElementById('cajero-edit-id').value;
-  const saldo = parseFloat(document.getElementById('cajero-nuevo-saldo').value);
-  if (isNaN(saldo)) return;
-  try {
-    await sb.from('spins_cajeros').update({ saldo, updated_at: new Date().toISOString() }).eq('id', id);
-    closeModal('modal-cajero');
-    showToast('Cajero actualizado ✓');
-    await loadAll();
-  } catch { showToast('Error al actualizar'); }
+async function saveCajero(){
+  const id=document.getElementById('cajero-edit-id').value;
+  const saldo=parseFloat(document.getElementById('cajero-nuevo-saldo').value);
+  if(isNaN(saldo))return;
+  try{
+    await sb.from('spins_cajeros').update({saldo,updated_at:new Date().toISOString()}).eq('id',id);
+    closeModal('modal-cajero'); showToast('Cajero actualizado ✓'); await loadAll();
+  }catch{showToast('Error al actualizar')}
 }
 
-// ── Modal helpers ──────────────────────────────────────────────
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+// ── Helpers ───────────────────────────────────────────────────
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function closeModalOnBg(e,id){if(e.target===document.getElementById(id))closeModal(id)}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function fmtE(v){return parseFloat(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€'}
+function fmtMin(m){const h=Math.floor(m/60),min=m%60;return h>0?`${h}h ${min}min`:`${min} min`}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0}
+function today(){return new Date().toISOString().split('T')[0]}
+function calcHoraStr(hora_fin,minutos){
+  if(!hora_fin||!minutos)return'—';
+  const p=(hora_fin+'').split(':');const h=parseInt(p[0]),m=parseInt(p[1]);
+  const t=h*60+m-minutos, n=((t%1440)+1440)%1440;
+  return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
 }
-
-function closeModalOnBg(event, id) {
-  if (event.target === document.getElementById(id)) closeModal(id);
-}
-
-// ── Toast ──────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-// ── Helpers ────────────────────────────────────────────────────
-function fmtEuro(v) {
-  return parseFloat(v).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '€';
-}
-function fmtMinutos(m) {
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  return h > 0 ? `${h}h ${min}min` : `${min} min`;
-}
-function cap(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
-function avg(arr) { return arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : 0; }
-
-function calcHoraInicioStr(hora_fin, minutos) {
-  if (!hora_fin || !minutos) return '—';
-  const parts = hora_fin.split(':');
-  const h = parseInt(parts[0]), m = parseInt(parts[1]);
-  const total = h * 60 + m - minutos;
-  const norm  = ((total % 1440) + 1440) % 1440;
-  return String(Math.floor(norm / 60)).padStart(2,'0') + ':' + String(norm % 60).padStart(2,'0');
-}
-
-function getHoraInicio(hora_fin, minutos) {
-  if (!hora_fin || !minutos) return 0;
-  const parts = hora_fin.split(':');
-  const h = parseInt(parts[0]), m = parseInt(parts[1]);
-  const total = h * 60 + m - minutos;
-  const norm  = ((total % 1440) + 1440) % 1440;
-  return Math.floor(norm / 60);
+function horaIniNum(hora_fin,minutos){
+  if(!hora_fin||!minutos)return 0;
+  const p=(hora_fin+'').split(':');const h=parseInt(p[0]),m=parseInt(p[1]);
+  const t=h*60+m-minutos, n=((t%1440)+1440)%1440;
+  return Math.floor(n/60);
 }
 </script>
 </body>
