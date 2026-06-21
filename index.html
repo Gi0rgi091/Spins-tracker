@@ -143,6 +143,37 @@
     .detail-item-value{font-size:14px;font-weight:500}
     #toast{position:fixed;bottom:calc(var(--nav-h) + 10px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;z-index:200;opacity:0;transition:opacity .2s;white-space:nowrap;pointer-events:none}
     #toast.show{opacity:1}
+    /* ── TABLAS SESIONES ── */
+    .ses-view-toggle{display:flex;gap:6px;margin-bottom:14px}
+    .ses-view-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+    .ses-view-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .periodo-block{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+    .periodo-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;user-select:none;gap:8px}
+    .periodo-header:active{background:var(--bg)}
+    .periodo-titulo{font-size:14px;font-weight:600}
+    .periodo-chevron{color:var(--muted);font-size:16px;transition:transform .2s;flex-shrink:0}
+    .periodo-chevron.open{transform:rotate(180deg)}
+    .periodo-resumen{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .periodo-stat{font-size:12px;color:var(--muted)}
+    .periodo-stat strong{color:var(--text);font-weight:600}
+    .periodo-stat.pos strong{color:var(--green)}
+    .periodo-stat.neg strong{color:var(--red)}
+    .periodo-body{display:none;border-top:1px solid var(--border)}
+    .periodo-body.open{display:block}
+    .tabla-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .tabla-resumen{width:100%;border-collapse:collapse;font-size:12px}
+    .tabla-resumen th{padding:8px 10px;text-align:right;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;background:var(--bg);border-bottom:1px solid var(--border)}
+    .tabla-resumen th:first-child{text-align:left}
+    .tabla-resumen td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+    .tabla-resumen td:first-child{text-align:left;font-weight:500}
+    .tabla-resumen tr:last-child td{border-bottom:none}
+    .tabla-resumen tr.fila-sesion{cursor:pointer}
+    .tabla-resumen tr.fila-sesion:hover td{background:var(--bg)}
+    .tabla-resumen tr.fila-total td{background:var(--bg);font-weight:600;border-top:2px solid var(--border)}
+    .rb-pct-input{width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;text-align:center;outline:none;background:var(--surface)}
+    .rb-pct-input:focus{border-color:var(--accent)}
+    .sala-dot-sm{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+    .seccion-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:10px 14px 4px;background:var(--bg)}
     @media(min-width:640px){
       .app-content{max-width:600px;margin:0 auto;padding-left:20px;padding-right:20px}
       .bottom-nav{justify-content:center}
@@ -231,7 +262,14 @@
     </div>
 
     <!-- SESIONES -->
-    <div id="tab-sesiones" class="tab-content"><div id="sesiones-list"></div></div>
+    <div id="tab-sesiones" class="tab-content">
+      <div class="ses-view-toggle">
+        <button class="ses-view-btn active" onclick="setSesView('diario')">Diario</button>
+        <button class="ses-view-btn" onclick="setSesView('semanal')">Semanal</button>
+        <button class="ses-view-btn" onclick="setSesView('mensual')">Mensual</button>
+      </div>
+      <div id="sesiones-list"></div>
+    </div>
 
     <!-- CAJEROS -->
     <div id="tab-cajeros" class="tab-content">
@@ -486,8 +524,28 @@
       </div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Origen</label><input type="text" id="mov-origen" placeholder="ej. Banco, Party"></div>
-      <div class="field"><label>Destino</label><input type="text" id="mov-destino" placeholder="ej. Winamax, Banco"></div>
+      <div class="field"><label>Origen</label>
+        <select id="mov-origen-select" onchange="onMovCuentaChange('origen')">
+          <option value="">— Selecciona —</option>
+          <option value="PokerStars">PokerStars</option>
+          <option value="Winamax">Winamax</option>
+          <option value="PartyPoker">PartyPoker</option>
+          <option value="Banco">Banco</option>
+          <option value="__custom__">Otra cuenta...</option>
+        </select>
+        <input type="text" id="mov-origen-custom" placeholder="Nombre de la cuenta" style="display:none;margin-top:6px">
+      </div>
+      <div class="field"><label>Destino</label>
+        <select id="mov-destino-select" onchange="onMovCuentaChange('destino')">
+          <option value="">— Selecciona —</option>
+          <option value="PokerStars">PokerStars</option>
+          <option value="Winamax">Winamax</option>
+          <option value="PartyPoker">PartyPoker</option>
+          <option value="Banco">Banco</option>
+          <option value="__custom__">Otra cuenta...</option>
+        </select>
+        <input type="text" id="mov-destino-custom" placeholder="Nombre de la cuenta" style="display:none;margin-top:6px">
+      </div>
     </div>
     <div class="field-row">
       <div class="field"><label>Cantidad (€)</label><input type="number" id="mov-cantidad" min="0" step="0.01" placeholder="0.00"></div>
@@ -556,6 +614,29 @@
   </div>
 </div>
 
+<!-- MODAL RAKEBACK SEMANAL -->
+<div id="modal-rb-semanal" class="modal-overlay" onclick="closeModalOnBg(event,'modal-rb-semanal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="rb-modal-title">Rakeback semanal</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px" id="rb-modal-sub">Introduce el % real de rakeback de esta semana, incluyendo la carrera.</p>
+    <div class="field">
+      <label>% Rakeback total (fijo + carrera)</label>
+      <input type="number" id="rb-pct-modal" step="0.01" min="0" max="200" placeholder="40.00">
+      <div class="field-hint">El fijo de Party es 40%. Si la carrera añade extra, ponlo aquí (ej. 55.82)</div>
+    </div>
+    <div class="field">
+      <label>Notas (opcional)</label>
+      <input type="text" id="rb-notas-modal" placeholder="ej. Posición 2 en carrera semana 24">
+    </div>
+    <input type="hidden" id="rb-semana-inicio-modal">
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-rb-semanal')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="saveRbSemanal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONFIRM -->
 <div id="modal-confirm" class="modal-overlay">
   <div class="modal-sheet">
@@ -580,7 +661,7 @@ const MAX_NIVELES = 4;
 
 // ── State ────────────────────────────────────────────────────
 let sb=null, currentTab='dashboard', currentMonth=new Date().getMonth(), currentYear=new Date().getFullYear();
-let allSesiones=[], allMovimientos=[], allPromociones=[], cajeros=[];
+let allSesiones=[], allMovimientos=[], allPromociones=[], cajeros=[], rbSemanal=[];
 let analisisFilter='todas', finanzasSubTab='movimientos', charts={};
 // Session form state
 let editingSesionId=null, sesionDateManuallyChanged=false;
@@ -632,13 +713,14 @@ async function doLogout(){await sb.auth.signOut();showScreen('login')}
 
 // ── Load ──────────────────────────────────────────────────────
 async function loadAll(){
-  const [sR,cR,mR,pR]=await Promise.all([
+  const [sR,cR,mR,pR,rbR]=await Promise.all([
     sb.from('spins_sesiones').select('*').order('fecha',{ascending:false}).order('hora_fin',{ascending:false}),
     sb.from('spins_cajeros').select('*').order('sala').order('tipo'),
     sb.from('spins_movimientos').select('*').order('fecha',{ascending:false}),
-    sb.from('spins_promociones').select('*').order('fecha',{ascending:false})
+    sb.from('spins_promociones').select('*').order('fecha',{ascending:false}),
+    sb.from('spins_rakeback_semanal').select('*').order('semana_inicio',{ascending:false})
   ]);
-  allSesiones=sR.data||[]; cajeros=cR.data||[]; allMovimientos=mR.data||[]; allPromociones=pR.data||[];
+  allSesiones=sR.data||[]; cajeros=cR.data||[]; allMovimientos=mR.data||[]; allPromociones=pR.data||[]; rbSemanal=rbR.data||[];
   renderCurrent();
 }
 function renderCurrent(){
@@ -773,18 +855,423 @@ function renderCajeros(){
 }
 
 // ── Sesiones ──────────────────────────────────────────────────
+// ── Vista actual de sesiones ──────────────────────────────────
+let sesView='diario';
+function setSesView(v){
+  sesView=v;
+  document.querySelectorAll('.ses-view-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===v));
+  renderSesiones();
+}
+
+// ── Helpers de agrupación ─────────────────────────────────────
+function lunesDe(fecha){
+  const d=new Date(fecha+'T00:00:00');
+  const dow=d.getDay(); // 0=dom
+  const diff=(dow===0?-6:1-dow);
+  const l=new Date(d); l.setDate(d.getDate()+diff);
+  return l.toISOString().split('T')[0];
+}
+function getRbPct(semanaInicio,sala){
+  if(sala!=='PartyPoker')return 0;
+  const row=rbSemanal.find(r=>r.semana_inicio===semanaInicio&&r.sala==='PartyPoker');
+  return row?row.pct_rakeback:40;
+}
+function calcStatsGrupo(sesList){
+  const spins=sesList.reduce((a,s)=>a+s.num_spins,0);
+  const apostado=sesList.reduce((a,s)=>a+s.total_apostado,0);
+  const ganado=sesList.reduce((a,s)=>a+s.ganado,0);
+  const ben=ganado-apostado;
+  const rake=sesList.reduce((a,s)=>a+(s.rake||0),0);
+  const mins=sesList.reduce((a,s)=>a+s.minutos_jugados,0);
+  const horas=mins/60;
+  const totalFichasEV=sesList.filter(s=>s.chips_ev!=null).reduce((a,s)=>a+(s.chips_ev*s.num_spins),0);
+  const spinsConEV=sesList.filter(s=>s.chips_ev!=null).reduce((a,s)=>a+s.num_spins,0);
+  const evSpin=spinsConEV>0?totalFichasEV/spinsConEV:null;
+  const sesConEvEur=sesList.filter(s=>s.ev_euros!=null);
+  const evEur=sesConEvEur.reduce((a,s)=>a+s.ev_euros,0);
+  const hasEvEur=sesConEvEur.length>0;
+  const itmCount=sesList.reduce((a,s)=>a+(s.itm_count||0),0);
+  const itmPct=spins>0?(itmCount/spins*100):null;
+  return{spins,apostado,ganado,ben,rake,horas,evSpin,evEur,hasEvEur,itmCount,itmPct};
+}
+
+// ── Rakeback por grupo (puede tener múltiples semanas) ─────────
+function calcRbGrupo(sesList){
+  // Agrupar sesiones Party por semana para aplicar el % correcto
+  const partyByWeek={};
+  sesList.filter(s=>s.sala==='PartyPoker').forEach(s=>{
+    const lun=lunesDe(s.fecha);
+    if(!partyByWeek[lun])partyByWeek[lun]=0;
+    partyByWeek[lun]+=(s.rake||0);
+  });
+  return Object.entries(partyByWeek).reduce((total,[lun,rake])=>{
+    return total+(rake*getRbPct(lun,'PartyPoker')/100);
+  },0);
+}
+
+// ── Render principal ──────────────────────────────────────────
 function renderSesiones(){
   const ses=getMonthSesiones();
   const el=document.getElementById('sesiones-list');
   if(!ses.length){el.innerHTML='<div class="empty-state"><p>Sin sesiones este mes.<br>Pulsa + para registrar una.</p></div>';return}
+  if(sesView==='diario') el.innerHTML=renderDiario(ses);
+  else if(sesView==='semanal') el.innerHTML=renderSemanal(ses);
+  else el.innerHTML=renderMensual();
+}
+
+// ── VISTA DIARIA ──────────────────────────────────────────────
+function renderDiario(ses){
   const byDate={};
-  ses.forEach(s=>{const f=s.fecha;if(!byDate[f])byDate[f]=[];byDate[f].push(s)});
-  el.innerHTML=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(f=>{
-    const d=new Date(f+'T00:00:00');
-    const lbl=cap(d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}));
-    return`<div class="session-date-header">${lbl}</div>`+byDate[f].map(s=>sessionRow(s)).join('');
+  ses.forEach(s=>{if(!byDate[s.fecha])byDate[s.fecha]=[];byDate[s.fecha].push(s)});
+  return Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(fecha=>{
+    const d=new Date(fecha+'T00:00:00');
+    const titulo=cap(d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+    const sesDia=byDate[fecha];
+    const st=calcStatsGrupo(sesDia);
+    const rb=calcRbGrupo(sesDia);
+    const benPostRb=st.ben+rb;
+    const lun=lunesDe(fecha);
+    const pctRb=getRbPct(lun,'PartyPoker');
+    const hayParty=sesDia.some(s=>s.sala==='PartyPoker');
+    const resumen=`
+      <div class="periodo-resumen">
+        <div class="periodo-stat ${st.ben>=0?'pos':'neg'}"><strong>${st.ben>=0?'+':''}${st.ben.toFixed(2)}€</strong> ben.</div>
+        ${hayParty?`<div class="periodo-stat pos"><strong>+${rb.toFixed(2)}€</strong> RB</div>`:''}
+        <div class="periodo-stat"><strong>${st.spins}</strong> spins</div>
+        <div class="periodo-stat"><strong>${st.horas.toFixed(1)}h</strong></div>
+        ${st.evSpin!=null?`<div class="periodo-stat ${st.evSpin>=0?'pos':'neg'}"><strong>${st.evSpin.toFixed(1)}</strong> EV/spin</div>`:''}
+      </div>`;
+    const filasSesiones=sesDia.map(s=>filaSesion(s,pctRb)).join('');
+    const stakeAvg=st.spins>0?(st.apostado/st.spins).toFixed(2):0;
+    const hourly=st.horas>0?(st.ben/st.horas).toFixed(2):0;
+    const hourlyRb=st.horas>0?(benPostRb/st.horas).toFixed(2):0;
+    const evEurHourly=st.horas>0?(st.evEur/st.horas).toFixed(2):0;
+    const evEurHourlyRb=st.horas>0?((st.evEur+rb)/st.horas).toFixed(2):0;
+    const filaTotales=`<tr class="fila-total">
+      <td>Total</td>
+      <td>${st.spins}</td>
+      <td>${st.apostado.toFixed(2)}€</td>
+      <td>${stakeAvg}€</td>
+      <td>${st.horas.toFixed(2)}h</td>
+      <td>${st.spins>0?(st.spins/st.horas).toFixed(1):0}</td>
+      <td>${st.itmCount}</td>
+      <td>${st.itmPct!=null?st.itmPct.toFixed(1)+'%':'—'}</td>
+      <td>${st.rake.toFixed(2)}€</td>
+      <td>${hayParty?`<input class="rb-pct-input" type="number" value="${pctRb}" step="0.01" min="0" title="% rakeback" onchange="updateRbPct('${lun}',this.value)" onclick="event.stopPropagation()">%`:'—'}</td>
+      <td>${hayParty?rb.toFixed(2)+'€':'—'}</td>
+      <td>${st.evSpin!=null?st.evSpin.toFixed(3):'—'}</td>
+      <td>${st.hasEvEur?(st.evEur>=0?'+':'')+st.evEur.toFixed(2)+'€':'—'}</td>
+      <td class="${st.ben>=0?'pos':'neg'}">${st.ben>=0?'+':''}${st.ben.toFixed(2)}€</td>
+      <td class="${benPostRb>=0?'pos':'neg'}">${benPostRb>=0?'+':''}${benPostRb.toFixed(2)}€</td>
+      <td class="${parseFloat(hourly)>=0?'pos':'neg'}">${parseFloat(hourly)>=0?'+':''}${hourly}€/h</td>
+      <td class="${parseFloat(hourlyRb)>=0?'pos':'neg'}">${parseFloat(hourlyRb)>=0?'+':''}${hourlyRb}€/h</td>
+      <td class="${parseFloat(evEurHourly)>=0?'pos':'neg'}">${st.hasEvEur?(evEurHourly>=0?'+':'')+evEurHourly+'€/h':'—'}</td>
+      <td class="${parseFloat(evEurHourlyRb)>=0?'pos':'neg'}">${st.hasEvEur?(evEurHourlyRb>=0?'+':'')+evEurHourlyRb+'€/h':'—'}</td>
+    </tr>`;
+    return periodoBlock(titulo,resumen,tablaCompleta(filasSesiones+filaTotales,pctRb,hayParty),'d-'+fecha);
   }).join('');
 }
+
+// ── VISTA SEMANAL ─────────────────────────────────────────────
+function renderSemanal(ses){
+  const byWeek={};
+  ses.forEach(s=>{const lun=lunesDe(s.fecha);if(!byWeek[lun])byWeek[lun]=[];byWeek[lun].push(s)});
+  return Object.keys(byWeek).sort((a,b)=>b.localeCompare(a)).map(lun=>{
+    const dl=new Date(lun+'T00:00:00');
+    const dom=new Date(dl); dom.setDate(dl.getDate()+6);
+    const titulo=`Semana ${cap(dl.toLocaleDateString('es-ES',{day:'numeric',month:'short'}))} – ${cap(dom.toLocaleDateString('es-ES',{day:'numeric',month:'short'}))}`;
+    const sesSem=byWeek[lun];
+    const st=calcStatsGrupo(sesSem);
+    const rb=calcRbGrupo(sesSem);
+    const benPostRb=st.ben+rb;
+    const pctRb=getRbPct(lun,'PartyPoker');
+    const hayParty=sesSem.some(s=>s.sala==='PartyPoker');
+    const resumen=`
+      <div class="periodo-resumen">
+        <div class="periodo-stat ${st.ben>=0?'pos':'neg'}"><strong>${st.ben>=0?'+':''}${st.ben.toFixed(2)}€</strong> ben.</div>
+        ${hayParty?`<div class="periodo-stat pos"><strong>+${rb.toFixed(2)}€</strong> RB</div>`:''}
+        <div class="periodo-stat"><strong>${st.spins}</strong> spins</div>
+        <div class="periodo-stat"><strong>${st.horas.toFixed(1)}h</strong></div>
+        ${st.evSpin!=null?`<div class="periodo-stat ${st.evSpin>=0?'pos':'neg'}"><strong>${st.evSpin.toFixed(1)}</strong> EV/spin</div>`:''}
+      </div>`;
+    // Agrupar sesiones por día dentro de la semana
+    const byDate={};
+    sesSem.forEach(s=>{if(!byDate[s.fecha])byDate[s.fecha]=[];byDate[s.fecha].push(s)});
+    const filasDias=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(fecha=>{
+      const d=new Date(fecha+'T00:00:00');
+      const dLabel=cap(d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}));
+      const stD=calcStatsGrupo(byDate[fecha]);
+      const rbD=calcRbGrupo(byDate[fecha]);
+      const benD=stD.ben+rbD;
+      const stakeAvg=stD.spins>0?(stD.apostado/stD.spins).toFixed(2):0;
+      const hourly=stD.horas>0?(stD.ben/stD.horas).toFixed(2):0;
+      const hourlyRb=stD.horas>0?(benD/stD.horas).toFixed(2):0;
+      const evEurH=stD.horas>0?(stD.evEur/stD.horas).toFixed(2):0;
+      const evEurHRb=stD.horas>0?((stD.evEur+rbD)/stD.horas).toFixed(2):0;
+      return`<tr>
+        <td>${dLabel}</td>
+        <td>${stD.spins}</td>
+        <td>${stD.apostado.toFixed(2)}€</td>
+        <td>${stakeAvg}€</td>
+        <td>${stD.horas.toFixed(2)}h</td>
+        <td>${stD.spins>0?(stD.spins/stD.horas).toFixed(1):0}</td>
+        <td>${stD.itmCount}</td>
+        <td>${stD.itmPct!=null?stD.itmPct.toFixed(1)+'%':'—'}</td>
+        <td>${stD.rake.toFixed(2)}€</td>
+        <td>—</td>
+        <td>${rbD>0?rbD.toFixed(2)+'€':'—'}</td>
+        <td>${stD.evSpin!=null?stD.evSpin.toFixed(3):'—'}</td>
+        <td>${stD.hasEvEur?(stD.evEur>=0?'+':'')+stD.evEur.toFixed(2)+'€':'—'}</td>
+        <td class="${stD.ben>=0?'pos':'neg'}">${stD.ben>=0?'+':''}${stD.ben.toFixed(2)}€</td>
+        <td class="${benD>=0?'pos':'neg'}">${benD>=0?'+':''}${benD.toFixed(2)}€</td>
+        <td class="${parseFloat(hourly)>=0?'pos':'neg'}">${hourly}€/h</td>
+        <td class="${parseFloat(hourlyRb)>=0?'pos':'neg'}">${hourlyRb}€/h</td>
+        <td>${stD.hasEvEur?evEurH+'€/h':'—'}</td>
+        <td>${stD.hasEvEur?evEurHRb+'€/h':'—'}</td>
+      </tr>`;
+    }).join('');
+    const stakeAvg=st.spins>0?(st.apostado/st.spins).toFixed(2):0;
+    const hourly=st.horas>0?(st.ben/st.horas).toFixed(2):0;
+    const hourlyRb=st.horas>0?((st.ben+rb)/st.horas).toFixed(2):0;
+    const evEurH=st.horas>0?(st.evEur/st.horas).toFixed(2):0;
+    const evEurHRb=st.horas>0?((st.evEur+rb)/st.horas).toFixed(2):0;
+    const filaTotales=`<tr class="fila-total">
+      <td>Total semana</td>
+      <td>${st.spins}</td>
+      <td>${st.apostado.toFixed(2)}€</td>
+      <td>${stakeAvg}€</td>
+      <td>${st.horas.toFixed(2)}h</td>
+      <td>${st.spins>0?(st.spins/st.horas).toFixed(1):0}</td>
+      <td>${st.itmCount}</td>
+      <td>${st.itmPct!=null?st.itmPct.toFixed(1)+'%':'—'}</td>
+      <td>${st.rake.toFixed(2)}€</td>
+      <td>${hayParty?`<input class="rb-pct-input" type="number" value="${pctRb}" step="0.01" min="0" title="% rakeback" onchange="updateRbPct('${lun}',this.value)" onclick="event.stopPropagation()">%`:'—'}</td>
+      <td>${hayParty?rb.toFixed(2)+'€':'—'}</td>
+      <td>${st.evSpin!=null?st.evSpin.toFixed(3):'—'}</td>
+      <td>${st.hasEvEur?(st.evEur>=0?'+':'')+st.evEur.toFixed(2)+'€':'—'}</td>
+      <td class="${st.ben>=0?'pos':'neg'}">${st.ben>=0?'+':''}${st.ben.toFixed(2)}€</td>
+      <td class="${benPostRb>=0?'pos':'neg'}">${benPostRb>=0?'+':''}${benPostRb.toFixed(2)}€</td>
+      <td class="${parseFloat(hourly)>=0?'pos':'neg'}">${hourly}€/h</td>
+      <td class="${parseFloat(hourlyRb)>=0?'pos':'neg'}">${hourlyRb}€/h</td>
+      <td>${st.hasEvEur?evEurH+'€/h':'—'}</td>
+      <td>${st.hasEvEur?evEurHRb+'€/h':'—'}</td>
+    </tr>`;
+    return periodoBlock(titulo,resumen,tablaCompleta(filasDias+filaTotales,pctRb,hayParty),'w-'+lun);
+  }).join('');
+}
+
+// ── VISTA MENSUAL/ANUAL ───────────────────────────────────────
+function renderMensual(){
+  // Agrupar todas las sesiones por año/mes
+  const byYearMonth={};
+  allSesiones.forEach(s=>{
+    const d=new Date(s.fecha+'T00:00:00');
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(!byYearMonth[key])byYearMonth[key]=[];
+    byYearMonth[key].push(s);
+  });
+  if(!Object.keys(byYearMonth).length)return'<div class="empty-state"><p>Sin sesiones registradas.</p></div>';
+  // Agrupar por año
+  const byYear={};
+  Object.keys(byYearMonth).sort((a,b)=>b.localeCompare(a)).forEach(ym=>{
+    const y=ym.split('-')[0];
+    if(!byYear[y])byYear[y]=[];
+    byYear[y].push(ym);
+  });
+  return Object.keys(byYear).sort((a,b)=>b-a).map(year=>{
+    const meses=byYear[year];
+    const todasSesYear=meses.flatMap(ym=>byYearMonth[ym]);
+    const stYear=calcStatsGrupo(todasSesYear);
+    const rbYear=calcRbGrupo(todasSesYear);
+    const benPostRbYear=stYear.ben+rbYear;
+    const resumenYear=`
+      <div class="periodo-resumen">
+        <div class="periodo-stat ${stYear.ben>=0?'pos':'neg'}"><strong>${stYear.ben>=0?'+':''}${stYear.ben.toFixed(2)}€</strong> ben.</div>
+        <div class="periodo-stat pos"><strong>+${rbYear.toFixed(2)}€</strong> RB</div>
+        <div class="periodo-stat"><strong>${stYear.spins}</strong> spins</div>
+        <div class="periodo-stat"><strong>${stYear.horas.toFixed(1)}h</strong></div>
+      </div>`;
+    const filasMeses=meses.map(ym=>{
+      const [y2,m]=ym.split('-');
+      const nombreMes=MESES[parseInt(m)-1]+' '+y2;
+      const sesMes=byYearMonth[ym];
+      const st=calcStatsGrupo(sesMes);
+      const rb=calcRbGrupo(sesMes);
+      const benPostRb=st.ben+rb;
+      const stakeAvg=st.spins>0?(st.apostado/st.spins).toFixed(2):0;
+      const hourly=st.horas>0?(st.ben/st.horas).toFixed(2):0;
+      const hourlyRb=st.horas>0?(benPostRb/st.horas).toFixed(2):0;
+      const evEurH=st.horas>0?(st.evEur/st.horas).toFixed(2):0;
+      const evEurHRb=st.horas>0?((st.evEur+rb)/st.horas).toFixed(2):0;
+      return`<tr>
+        <td>${nombreMes}</td>
+        <td>${st.spins}</td>
+        <td>${st.apostado.toFixed(2)}€</td>
+        <td>${stakeAvg}€</td>
+        <td>${st.horas.toFixed(2)}h</td>
+        <td>${st.spins>0?(st.spins/st.horas).toFixed(1):0}</td>
+        <td>${st.itmCount}</td>
+        <td>${st.itmPct!=null?st.itmPct.toFixed(1)+'%':'—'}</td>
+        <td>${st.rake.toFixed(2)}€</td>
+        <td>—</td>
+        <td>${rb>0?'+'+rb.toFixed(2)+'€':'—'}</td>
+        <td>${st.evSpin!=null?st.evSpin.toFixed(3):'—'}</td>
+        <td>${st.hasEvEur?(st.evEur>=0?'+':'')+st.evEur.toFixed(2)+'€':'—'}</td>
+        <td class="${st.ben>=0?'pos':'neg'}">${st.ben>=0?'+':''}${st.ben.toFixed(2)}€</td>
+        <td class="${benPostRb>=0?'pos':'neg'}">${benPostRb>=0?'+':''}${benPostRb.toFixed(2)}€</td>
+        <td class="${parseFloat(hourly)>=0?'pos':'neg'}">${hourly}€/h</td>
+        <td class="${parseFloat(hourlyRb)>=0?'pos':'neg'}">${hourlyRb}€/h</td>
+        <td>${st.hasEvEur?evEurH+'€/h':'—'}</td>
+        <td>${st.hasEvEur?evEurHRb+'€/h':'—'}</td>
+      </tr>`;
+    }).join('');
+    const stakeAvgYear=stYear.spins>0?(stYear.apostado/stYear.spins).toFixed(2):0;
+    const hourlyYear=stYear.horas>0?(stYear.ben/stYear.horas).toFixed(2):0;
+    const hourlyRbYear=stYear.horas>0?(benPostRbYear/stYear.horas).toFixed(2):0;
+    const evEurHYear=stYear.horas>0?(stYear.evEur/stYear.horas).toFixed(2):0;
+    const evEurHRbYear=stYear.horas>0?((stYear.evEur+rbYear)/stYear.horas).toFixed(2):0;
+    const filaTotalYear=`<tr class="fila-total">
+      <td>Total ${year}</td>
+      <td>${stYear.spins}</td>
+      <td>${stYear.apostado.toFixed(2)}€</td>
+      <td>${stakeAvgYear}€</td>
+      <td>${stYear.horas.toFixed(2)}h</td>
+      <td>${stYear.spins>0?(stYear.spins/stYear.horas).toFixed(1):0}</td>
+      <td>${stYear.itmCount}</td>
+      <td>${stYear.itmPct!=null?stYear.itmPct.toFixed(1)+'%':'—'}</td>
+      <td>${stYear.rake.toFixed(2)}€</td>
+      <td>—</td>
+      <td>${rbYear>0?'+'+rbYear.toFixed(2)+'€':'—'}</td>
+      <td>${stYear.evSpin!=null?stYear.evSpin.toFixed(3):'—'}</td>
+      <td>${stYear.hasEvEur?(stYear.evEur>=0?'+':'')+stYear.evEur.toFixed(2)+'€':'—'}</td>
+      <td class="${stYear.ben>=0?'pos':'neg'}">${stYear.ben>=0?'+':''}${stYear.ben.toFixed(2)}€</td>
+      <td class="${benPostRbYear>=0?'pos':'neg'}">${benPostRbYear>=0?'+':''}${benPostRbYear.toFixed(2)}€</td>
+      <td class="${parseFloat(hourlyYear)>=0?'pos':'neg'}">${hourlyYear}€/h</td>
+      <td class="${parseFloat(hourlyRbYear)>=0?'pos':'neg'}">${hourlyRbYear}€/h</td>
+      <td>${stYear.hasEvEur?evEurHYear+'€/h':'—'}</td>
+      <td>${stYear.hasEvEur?evEurHRbYear+'€/h':'—'}</td>
+    </tr>`;
+    return periodoBlock(year,resumenYear,tablaCompleta(filasMeses+filaTotalYear,40,true),'y-'+year);
+  }).join('');
+}
+
+// ── Fila individual de sesión ─────────────────────────────────
+function filaSesion(s,pctRb){
+  const ben=s.ganado-s.total_apostado;
+  const color=SALA_COLOR[s.sala]||'#667085';
+  const horaIni=calcHoraStr(s.hora_fin,s.minutos_jugados);
+  const rb=s.sala==='PartyPoker'?(s.rake||0)*pctRb/100:0;
+  const benPostRb=ben+rb;
+  const horas=s.minutos_jugados/60;
+  const hourly=horas>0?(ben/horas).toFixed(2):0;
+  const hourlyRb=horas>0?(benPostRb/horas).toFixed(2):0;
+  const stakeLabel=s.stake?'€'+s.stake:'Mix';
+  const evEurH=horas>0&&s.ev_euros!=null?(s.ev_euros/horas).toFixed(2):null;
+  const evEurHRb=horas>0&&s.ev_euros!=null?((s.ev_euros+rb)/horas).toFixed(2):null;
+  const salaShort=s.sala==='PokerStars'?'Stars':s.sala==='PartyPoker'?'Party':s.sala;
+  const itmPctSes=s.itm_count!=null&&s.num_spins>0?(s.itm_count/s.num_spins*100).toFixed(1)+'%':'—';
+  return`<tr class="fila-sesion" onclick="openDetalle('${s.id}')">
+    <td><span class="sala-dot-sm" style="background:${color}"></span>${salaShort} ${stakeLabel}<br><span style="font-size:10px;color:var(--muted)">${horaIni}–${(s.hora_fin||'').slice(0,5)}</span></td>
+    <td>${s.num_spins}</td>
+    <td>${s.total_apostado.toFixed(2)}€</td>
+    <td>${s.stake?s.stake+'€':'—'}</td>
+    <td>${horas.toFixed(2)}h</td>
+    <td>${horas>0?(s.num_spins/horas).toFixed(1):0}</td>
+    <td>${s.itm_count!=null?s.itm_count:'—'}</td>
+    <td>${itmPctSes}</td>
+    <td>${s.rake!=null?s.rake.toFixed(2)+'€':'—'}</td>
+    <td>—</td>
+    <td>${rb>0?rb.toFixed(2)+'€':'—'}</td>
+    <td>${s.chips_ev!=null?s.chips_ev.toFixed(3):'—'}</td>
+    <td>${s.ev_euros!=null?(s.ev_euros>=0?'+':'')+s.ev_euros.toFixed(2)+'€':'—'}</td>
+    <td class="${ben>=0?'pos':'neg'}">${ben>=0?'+':''}${ben.toFixed(2)}€</td>
+    <td class="${benPostRb>=0?'pos':'neg'}">${benPostRb>=0?'+':''}${benPostRb.toFixed(2)}€</td>
+    <td class="${parseFloat(hourly)>=0?'pos':'neg'}">${hourly}€/h</td>
+    <td class="${parseFloat(hourlyRb)>=0?'pos':'neg'}">${hourlyRb}€/h</td>
+    <td>${evEurH!=null?evEurH+'€/h':'—'}</td>
+    <td>${evEurHRb!=null?evEurHRb+'€/h':'—'}</td>
+  </tr>`;
+}
+
+// ── Estructura HTML de tabla ──────────────────────────────────
+function tablaCompleta(filas,pctRb,hayParty){
+  return`<div class="tabla-scroll"><table class="tabla-resumen">
+    <thead><tr>
+      <th>Sesión/Día</th>
+      <th>Spins</th>
+      <th>Apostado</th>
+      <th>Stake avg</th>
+      <th>Horas</th>
+      <th>Sp/h</th>
+      <th>ITM</th>
+      <th>ITM%</th>
+      <th>Rake</th>
+      <th>RB%</th>
+      <th>RB €</th>
+      <th>EV/spin</th>
+      <th>€EV</th>
+      <th>Ben.</th>
+      <th>(€+RB)</th>
+      <th>€/h</th>
+      <th>(€+RB)/h</th>
+      <th>€EV/h</th>
+      <th>(€EV+RB)/h</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table></div>`;
+}
+
+// ── Bloque desplegable ────────────────────────────────────────
+function periodoBlock(titulo,resumen,body,key){
+  const isOpen=openPeriodos.has(key);
+  return`<div class="periodo-block">
+    <div class="periodo-header" onclick="togglePeriodo('${key}')">
+      <div>
+        <div class="periodo-titulo">${titulo}</div>
+        <div style="margin-top:4px">${resumen}</div>
+      </div>
+      <div class="periodo-chevron ${isOpen?'open':''}">▾</div>
+    </div>
+    <div class="periodo-body ${isOpen?'open':''}" id="pb-${key}">${body}</div>
+  </div>`;
+}
+const openPeriodos=new Set();
+function togglePeriodo(key){
+  const body=document.getElementById('pb-'+key);
+  const chevron=body?.previousElementSibling?.querySelector('.periodo-chevron');
+  if(!body)return;
+  if(openPeriodos.has(key)){openPeriodos.delete(key);body.classList.remove('open');chevron?.classList.remove('open')}
+  else{openPeriodos.add(key);body.classList.add('open');chevron?.classList.add('open')}
+}
+
+// ── Guardar % rakeback semanal ────────────────────────────────
+async function updateRbPct(semanaInicio,pct){
+  const pctNum=parseFloat(pct);
+  if(isNaN(pctNum))return;
+  try{
+    await sb.from('spins_rakeback_semanal').upsert({semana_inicio:semanaInicio,sala:'PartyPoker',pct_rakeback:pctNum},{onConflict:'semana_inicio,sala'});
+    const idx=rbSemanal.findIndex(r=>r.semana_inicio===semanaInicio&&r.sala==='PartyPoker');
+    if(idx>=0)rbSemanal[idx].pct_rakeback=pctNum;
+    else rbSemanal.push({semana_inicio:semanaInicio,sala:'PartyPoker',pct_rakeback:pctNum});
+    showToast('Rakeback '+pctNum+'% guardado ✓');
+    renderSesiones();
+  }catch(e){showToast('Error al guardar RB%')}
+}
+async function saveRbSemanal(){
+  const lun=document.getElementById('rb-semana-inicio-modal').value;
+  const pct=parseFloat(document.getElementById('rb-pct-modal').value);
+  const notas=document.getElementById('rb-notas-modal').value.trim()||null;
+  if(isNaN(pct))return;
+  try{
+    await sb.from('spins_rakeback_semanal').upsert({semana_inicio:lun,sala:'PartyPoker',pct_rakeback:pct,notas},{onConflict:'semana_inicio,sala'});
+    const idx=rbSemanal.findIndex(r=>r.semana_inicio===lun&&r.sala==='PartyPoker');
+    if(idx>=0){rbSemanal[idx].pct_rakeback=pct;rbSemanal[idx].notas=notas}
+    else rbSemanal.push({semana_inicio:lun,sala:'PartyPoker',pct_rakeback:pct,notas});
+    closeModal('modal-rb-semanal'); showToast('Rakeback guardado ✓'); renderSesiones();
+  }catch{showToast('Error al guardar')}
+}
+
+// ── sessionRow (para dashboard recientes) ────────────────────
 function sessionRow(s){
   const ben=s.ganado-s.total_apostado;
   const color=SALA_COLOR[s.sala]||'#667085';
@@ -819,9 +1306,24 @@ function renderMovimientos(){
     const signo=m.tipo==='ingreso'?'+':m.tipo==='retirada'?'-':'';
     return`<div class="mov-row">
       <div><span class="mov-tipo ${m.tipo}">${m.tipo}</span><div class="mov-ruta">${m.origen} → ${m.destino}</div><div class="mov-fecha">${f}${m.notas?' · '+m.notas:''}</div></div>
-      <div class="mov-cantidad ${m.tipo}">${signo}${fmtE(m.cantidad)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="mov-cantidad ${m.tipo}">${signo}${fmtE(m.cantidad)}</div>
+        <button onclick="deleteMovimiento('${m.id}')" style="background:none;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
+      </div>
     </div>`;
   }).join('');
+}
+// NOTA DE LIMPIEZA: no existía ninguna forma de borrar un movimiento de Spins —
+// solo se podían crear, nunca eliminar. Esto causaba que pruebas/errores quedaran
+// permanentemente en la tabla. Esta función estaba completamente ausente.
+async function deleteMovimiento(id){
+  try{
+    await sb.from('spins_movimientos').delete().eq('id', id);
+    showToast('✓ Movimiento eliminado');
+    await loadAll();
+  }catch(e){
+    showToast('Error al eliminar: '+e.message);
+  }
 }
 function renderPromos(){
   const el=document.getElementById('promos-list');
@@ -1239,7 +1741,13 @@ async function deleteSesion(id,sala,ben){
 // ── Movimiento ────────────────────────────────────────────────
 function openMovimientoModal(){
   document.getElementById('mov-error').style.display='none';
-  ['mov-origen','mov-destino','mov-cantidad','mov-notas'].forEach(id=>document.getElementById(id).value='');
+  ['mov-cantidad','mov-notas'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mov-origen-select').value='';
+  document.getElementById('mov-destino-select').value='';
+  document.getElementById('mov-origen-custom').value='';
+  document.getElementById('mov-destino-custom').value='';
+  document.getElementById('mov-origen-custom').style.display='none';
+  document.getElementById('mov-destino-custom').style.display='none';
   document.getElementById('mov-fecha').value=today();
   document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
   document.querySelector('#mov-tipo-pills [data-tipo="ingreso"]').classList.add('selected');
@@ -1250,18 +1758,84 @@ function selectMovTipo(btn){
   document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
   btn.classList.add('selected'); selectedMovTipo=btn.dataset.tipo;
 }
+// Cuando se elige "Otra cuenta...", se revela el input de texto libre para casos
+// puntuales (salas no estándar, cuentas bancarias específicas, etc.)
+function onMovCuentaChange(cual){
+  const sel = document.getElementById('mov-'+cual+'-select');
+  const custom = document.getElementById('mov-'+cual+'-custom');
+  custom.style.display = (sel.value === '__custom__') ? 'block' : 'none';
+  if (sel.value === '__custom__') custom.focus();
+}
+// Devuelve el valor real de la cuenta: el del select, o el texto libre si se eligió "Otra cuenta..."
+function getMovCuenta(cual){
+  const sel = document.getElementById('mov-'+cual+'-select').value;
+  if (sel === '__custom__') return document.getElementById('mov-'+cual+'-custom').value.trim();
+  return sel;
+}
+// Mapeo sala spins → nombre de subcuenta en Patrimonio (grupo 'poker')
+// Se usa para decidir si un movimiento de Spins debe replicarse en Patrimonio
+const PATRIMONIO_SUBCUENTA_MAP = {
+  'PokerStars':  'PokerStars',
+  'Winamax':     'Winamax (€ reales)',
+  'PartyPoker':  'PartyPoker (€ reales)',
+};
+// Si el origen/destino escrito en Spins coincide (insensible a mayúsculas) con una sala estándar,
+// se traduce al nombre exacto de subcuenta que usa Patrimonio. Si no coincide con nada (p.ej. "Banco"),
+// se deja tal cual: Patrimonio mostrará ese texto igualmente en origen/destino.
+function mapSubcuentaPatrimonio(texto){
+  if(!texto)return texto;
+  const t=texto.trim();
+  for(const sala in PATRIMONIO_SUBCUENTA_MAP){
+    if(t.toLowerCase()===sala.toLowerCase())return PATRIMONIO_SUBCUENTA_MAP[sala];
+  }
+  return t;
+}
+async function crossWritePatrimonioMovimiento(fecha,tipo,origen,destino,cantidad,notas){
+  // tipo de Spins (ingreso/retirada/transferencia) → tipo que entiende Patrimonio (dep_poker/ret_poker)
+  const tipoPat = tipo==='retirada' ? 'ret_poker' : 'dep_poker';
+  const m={
+    fecha, tipo:tipoPat, importe:cantidad,
+    origen:mapSubcuentaPatrimonio(origen),
+    destino:mapSubcuentaPatrimonio(destino),
+    nota:(notas?notas+' ':'')+'(desde Spins Tracker)',
+    es_historico:false
+  };
+  // Ya NO se traga el error: si falla, se relanza para que saveMovimiento() sepa
+  // exactamente qué falló (antes quedaba oculto en console.error, invisible en móvil).
+  const { error } = await sb.from('movimientos').insert([m]);
+  if (error) throw new Error('Patrimonio: ' + error.message);
+}
+
 async function saveMovimiento(){
   const errEl=document.getElementById('mov-error'); errEl.style.display='none';
-  const origen=document.getElementById('mov-origen').value.trim();
-  const destino=document.getElementById('mov-destino').value.trim();
+  const origen=getMovCuenta('origen');
+  const destino=getMovCuenta('destino');
   const cantidad=parseFloat(document.getElementById('mov-cantidad').value);
   const fecha=document.getElementById('mov-fecha').value;
   const notas=document.getElementById('mov-notas').value.trim()||null;
   if(!origen||!destino||isNaN(cantidad)||!fecha){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return}
   try{
     await sb.from('spins_movimientos').insert([{fecha,tipo:selectedMovTipo,origen,destino,cantidad,notas}]);
-    closeModal('modal-movimiento'); showToast('Movimiento guardado ✓'); await loadAll();
-  }catch{errEl.textContent='Error al guardar.';errEl.style.display='block'}
+  }catch(e){
+    errEl.textContent='Error al guardar en Spins: '+(e.message||e);
+    errEl.style.display='block';
+    return;
+  }
+  // El movimiento en Spins ya se guardó correctamente. El cruce a Patrimonio es un paso
+  // adicional — si falla, se avisa por separado en lugar de aparentar que todo falló.
+  const tocaPoker = Object.keys(PATRIMONIO_SUBCUENTA_MAP).some(sala=>
+    origen.toLowerCase()===sala.toLowerCase() || destino.toLowerCase()===sala.toLowerCase()
+  );
+  if(tocaPoker && selectedMovTipo!=='transferencia'){
+    try{
+      await crossWritePatrimonioMovimiento(fecha,selectedMovTipo,origen,destino,cantidad,notas);
+    }catch(e){
+      showToast('Guardado en Spins, pero NO se replicó en Patrimonio: '+e.message);
+      closeModal('modal-movimiento'); await loadAll();
+      return;
+    }
+  }
+  closeModal('modal-movimiento'); showToast('Movimiento guardado ✓ (Spins + Patrimonio)'); await loadAll();
 }
 
 // ── Promo ─────────────────────────────────────────────────────
