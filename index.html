@@ -302,6 +302,21 @@
       <div class="chart-card"><div class="chart-title">Chips EV media · Período del mes</div><div class="chart-wrap"><canvas id="chart-periodo"></canvas></div></div>
       <div class="chart-card"><div class="chart-title">Beneficio acumulado · Mes actual</div><div class="chart-wrap"><canvas id="chart-acum"></canvas></div></div>
     </div>
+
+    <div id="tab-simulador" class="tab-content">
+      <div style="padding:12px 16px 0">
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:14px">
+          <strong>Fórmula:</strong> EV ROI = (cEV/500 × (1−Rake)) − Rake &nbsp;·&nbsp;
+          Ganancia/spin = Buy-in × EV ROI &nbsp;·&nbsp; Ganancia con RB = Ganancia/spin + (Buy-in × Rake × RB%)
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-weight:600;font-size:14px">Escenarios</span>
+          <button onclick="addSimEscenario()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">+ Añadir escenario</button>
+        </div>
+        <div id="sim-escenarios-container"></div>
+        <div id="sim-resultados" style="margin-top:16px"></div>
+      </div>
+    </div>
   </main>
 
   <button class="fab" id="main-fab" onclick="onFabClick()">+</button>
@@ -326,6 +341,10 @@
     <button class="nav-item" data-tab="analisis" onclick="showTab('analisis')">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
       Análisis
+    </button>
+    <button class="nav-item" data-tab="simulador" onclick="showTab('simulador')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.456-2.456L14.25 6l1.035-.259a3.375 3.375 0 002.456-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+      Simulador
     </button>
   </nav>
 </div>
@@ -524,25 +543,15 @@
       </div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Origen</label>
+      <div class="field"><label id="mov-origen-label">Origen</label>
         <select id="mov-origen-select" onchange="onMovCuentaChange('origen')">
           <option value="">— Selecciona —</option>
-          <option value="PokerStars">PokerStars</option>
-          <option value="Winamax">Winamax</option>
-          <option value="PartyPoker">PartyPoker</option>
-          <option value="Banco">Banco</option>
-          <option value="__custom__">Otra cuenta...</option>
         </select>
         <input type="text" id="mov-origen-custom" placeholder="Nombre de la cuenta" style="display:none;margin-top:6px">
       </div>
-      <div class="field"><label>Destino</label>
+      <div class="field"><label id="mov-destino-label">Destino</label>
         <select id="mov-destino-select" onchange="onMovCuentaChange('destino')">
           <option value="">— Selecciona —</option>
-          <option value="PokerStars">PokerStars</option>
-          <option value="Winamax">Winamax</option>
-          <option value="PartyPoker">PartyPoker</option>
-          <option value="Banco">Banco</option>
-          <option value="__custom__">Otra cuenta...</option>
         </select>
         <input type="text" id="mov-destino-custom" placeholder="Nombre de la cuenta" style="display:none;margin-top:6px">
       </div>
@@ -662,6 +671,7 @@ const MAX_NIVELES = 4;
 // ── State ────────────────────────────────────────────────────
 let sb=null, currentTab='dashboard', currentMonth=new Date().getMonth(), currentYear=new Date().getFullYear();
 let allSesiones=[], allMovimientos=[], allPromociones=[], cajeros=[], rbSemanal=[];
+let _cuentasLiquido=[], _cuentasPoker=[]; // subcuentas reales de Patrimonio, cacheadas al cargar
 let analisisFilter='todas', finanzasSubTab='movimientos', charts={};
 // Session form state
 let editingSesionId=null, sesionDateManuallyChanged=false;
@@ -721,6 +731,7 @@ async function loadAll(){
     sb.from('spins_rakeback_semanal').select('*').order('semana_inicio',{ascending:false})
   ]);
   allSesiones=sR.data||[]; cajeros=cR.data||[]; allMovimientos=mR.data||[]; allPromociones=pR.data||[]; rbSemanal=rbR.data||[];
+  if(!_cuentasLiquido.length && !_cuentasPoker.length) await cargarCuentasPatrimonio();
   renderCurrent();
 }
 function renderCurrent(){
@@ -729,6 +740,7 @@ function renderCurrent(){
   else if(currentTab==='cajeros')renderCajeros();
   else if(currentTab==='finanzas')renderFinanzas();
   else if(currentTab==='analisis')renderAnalisis();
+  else if(currentTab==='simulador')renderSimulador();
 }
 
 // ── Month ─────────────────────────────────────────────────────
@@ -1316,15 +1328,6 @@ function renderMovimientos(){
 // NOTA DE LIMPIEZA: no existía ninguna forma de borrar un movimiento de Spins —
 // solo se podían crear, nunca eliminar. Esto causaba que pruebas/errores quedaran
 // permanentemente en la tabla. Esta función estaba completamente ausente.
-async function deleteMovimiento(id){
-  try{
-    await sb.from('spins_movimientos').delete().eq('id', id);
-    showToast('✓ Movimiento eliminado');
-    await loadAll();
-  }catch(e){
-    showToast('Error al eliminar: '+e.message);
-  }
-}
 function renderPromos(){
   const el=document.getElementById('promos-list');
   if(!allPromociones.length){el.innerHTML='<div class="empty-state"><p>Sin promos registradas.<br>Pulsa + para añadir.</p></div>';return}
@@ -1394,6 +1397,217 @@ function buildBar(id,labels,data){
   const ctx=canvas.getContext('2d');
   const colors=data.map(v=>v==null?'#E4E7EC':v>=0?'#027A48CC':'#B42318CC');
   charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:data.map(v=>v??0),backgroundColor:colors,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#E4E7EC'}}}}});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULADOR DE ESCENARIOS — EV ROI + Rakeback
+// Fórmula: EV ROI = (cEV/500 × (1−Rake)) − Rake
+// Ganancia bruta/spin = Buy-in × EV ROI
+// Ganancia con RB/spin = Ganancia bruta/spin + Buy-in × Rake × RB%
+// ═══════════════════════════════════════════════════════════════
+let simEscenarios=[];
+const SIM_COLORES=['#3b8ef0','#16a34a','#e07a30','#8b72f0','#dc2626','#14b8a6','#d99a1b','#d060a0'];
+
+function renderSimulador(){
+  if(!simEscenarios.length) addSimEscenario();
+  renderSimEscenarios();
+  calcularSimulador();
+}
+
+function addSimEscenario(){
+  const id=Date.now();
+  const defaults=[
+    {sala:'Winamax',stake:25,mesas:4,spinsHoraMesa:30,totalSpins:1000,chipEV:38,rakePct:7,rbPct:30},
+    {sala:'PokerStars',stake:25,mesas:4,spinsHoraMesa:30,totalSpins:1000,chipEV:35,rakePct:6,rbPct:35},
+    {sala:'iPoker',stake:20,mesas:4,spinsHoraMesa:28,totalSpins:1000,chipEV:32,rakePct:8,rbPct:45},
+  ];
+  const def=defaults[simEscenarios.length%defaults.length];
+  simEscenarios.push({id,...def});
+  renderSimEscenarios();
+  calcularSimulador();
+}
+
+function removeSimEscenario(id){
+  simEscenarios=simEscenarios.filter(e=>e.id!==id);
+  renderSimEscenarios();
+  calcularSimulador();
+}
+
+function getSimVal(id,field){
+  const el=document.getElementById(`sim-${id}-${field}`);
+  return el?parseFloat(el.value)||0:0;
+}
+
+function onSimInput(id){
+  const e=simEscenarios.find(x=>x.id===id); if(!e) return;
+  e.sala=document.getElementById(`sim-${id}-sala`)?.value||e.sala;
+  e.stake=getSimVal(id,'stake');
+  e.mesas=getSimVal(id,'mesas');
+  e.spinsHoraMesa=getSimVal(id,'spinsHoraMesa');
+  e.totalSpins=getSimVal(id,'totalSpins');
+  e.chipEV=getSimVal(id,'chipEV');
+  e.rakePct=getSimVal(id,'rakePct');
+  e.rbPct=getSimVal(id,'rbPct');
+  calcularSimulador();
+}
+
+function calcSimEscenario(e){
+  const rake=e.rakePct/100;
+  const rb=e.rbPct/100;
+  const evRoi=(e.chipEV/500)*(1-rake)-rake;         // EV ROI puro (sin RB)
+  const evRoiConRb=evRoi+rake*rb;                   // EV ROI con rakeback
+  const ganBrutaSpin=e.stake*evRoi;                 // €/spin antes de RB
+  const ganRbSpin=e.stake*evRoiConRb;               // €/spin con RB
+  const rakeSpin=e.stake*rake;                      // rake pagado/spin
+  const rbSpin=rakeSpin*rb;                         // rakeback recibido/spin
+  const spinsHoraTotal=e.mesas*e.spinsHoraMesa;     // spins/hora total
+  const ganBrutaHora=ganBrutaSpin*spinsHoraTotal;
+  const ganRbHora=ganRbSpin*spinsHoraTotal;
+  const ganBrutaTotal=ganBrutaSpin*e.totalSpins;
+  const ganRbTotal=ganRbSpin*e.totalSpins;
+  const rakeTotal=rakeSpin*e.totalSpins;
+  const rbTotal=rbSpin*e.totalSpins;
+  const horasTotal=e.totalSpins/spinsHoraTotal;
+  return{evRoi,evRoiConRb,ganBrutaSpin,ganRbSpin,rakeSpin,rbSpin,
+    ganBrutaHora,ganRbHora,ganBrutaTotal,ganRbTotal,rakeTotal,rbTotal,horasTotal,spinsHoraTotal};
+}
+
+function fmtPct(n){return(n>=0?'+':'')+(n*100).toFixed(2)+'%'}
+
+function renderSimEscenarios(){
+  const c=document.getElementById('sim-escenarios-container'); if(!c) return;
+  c.innerHTML=simEscenarios.map((e,idx)=>{
+    const col=SIM_COLORES[idx%SIM_COLORES.length];
+    return`<div style="background:var(--surface);border:2px solid ${col};border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
+          <input id="sim-${e.id}-sala" value="${e.sala}" placeholder="Sala / escenario"
+            style="font-weight:600;font-size:14px;border:none;background:transparent;color:var(--text);font-family:inherit;outline:none;width:160px"
+            oninput="onSimInput(${e.id})">
+        </div>
+        ${simEscenarios.length>1?`<button onclick="removeSimEscenario(${e.id})" style="background:none;border:1px solid var(--red,#dc2626);color:var(--red,#dc2626);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Buy-in (€)</div>
+          <input type="number" id="sim-${e.id}-stake" value="${e.stake}" step="1" min="1" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Chips EV/spin</div>
+          <input type="number" id="sim-${e.id}-chipEV" value="${e.chipEV}" step="1" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Rake % sala</div>
+          <input type="number" id="sim-${e.id}-rakePct" value="${e.rakePct}" step="0.5" min="0" max="20" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Rakeback %</div>
+          <input type="number" id="sim-${e.id}-rbPct" value="${e.rbPct}" step="1" min="0" max="100" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Mesas simultáneas</div>
+          <input type="number" id="sim-${e.id}-mesas" value="${e.mesas}" step="1" min="1" max="20" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Spins/hora × mesa</div>
+          <input type="number" id="sim-${e.id}-spinsHoraMesa" value="${e.spinsHoraMesa}" step="1" min="1" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+        <div style="grid-column:1/-1"><div style="font-size:9px;color:var(--muted);margin-bottom:3px">Total spins a simular</div>
+          <input type="number" id="sim-${e.id}-totalSpins" value="${e.totalSpins}" step="100" min="1" oninput="onSimInput(${e.id})"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--text)"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function calcularSimulador(){
+  const resultados=simEscenarios.map((e,idx)=>({e,r:calcSimEscenario(e),col:SIM_COLORES[idx%SIM_COLORES.length]}));
+  const c=document.getElementById('sim-resultados'); if(!c) return;
+
+  // Tarjetas de resultados por escenario
+  const tarjetas=resultados.map(({e,r,col})=>{
+    const brutaColor=r.ganBrutaSpin>=0?'#16a34a':'#dc2626';
+    const rbColor=r.ganRbSpin>=0?'#16a34a':'#dc2626';
+    return`<div style="background:var(--surface);border:2px solid ${col};border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;color:${col};margin-bottom:10px;display:flex;justify-content:space-between">
+        <span>${e.sala} · ${e.stake}€ · ${e.mesas}m × ${e.spinsHoraMesa}/h = ${r.spinsHoraTotal} spins/h</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:var(--bg);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);margin-bottom:2px">EV ROI bruto</div>
+          <div style="font-size:15px;font-weight:700;color:${brutaColor}">${(r.evRoi*100).toFixed(2)}%</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);margin-bottom:2px">EV ROI con RB</div>
+          <div style="font-size:15px;font-weight:700;color:${rbColor}">${(r.evRoiConRb*100).toFixed(2)}%</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);margin-bottom:2px">Rake/spin</div>
+          <div style="font-size:15px;font-weight:700;color:var(--muted)">${r.rakeSpin.toFixed(2)}€</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--muted);font-weight:600">Métrica</th>
+          <th style="text-align:right;padding:5px 4px;font-size:10px;color:var(--muted);font-weight:600">Bruto</th>
+          <th style="text-align:right;padding:5px 4px;font-size:10px;color:var(--muted);font-weight:600">Con RB</th>
+          <th style="text-align:right;padding:5px 4px;font-size:10px;color:var(--muted);font-weight:600">RB sólo</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 4px">Por spin</td>
+            <td style="text-align:right;padding:5px 4px;color:${brutaColor};font-weight:600">${r.ganBrutaSpin.toFixed(3)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:${rbColor};font-weight:600">${r.ganRbSpin.toFixed(3)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:#16a34a">${r.rbSpin.toFixed(3)}€</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 4px">Por hora</td>
+            <td style="text-align:right;padding:5px 4px;color:${brutaColor};font-weight:600">${r.ganBrutaHora.toFixed(2)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:${rbColor};font-weight:600">${r.ganRbHora.toFixed(2)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:#16a34a">${(r.rbSpin*r.spinsHoraTotal).toFixed(2)}€</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 4px">Por 1.000 spins</td>
+            <td style="text-align:right;padding:5px 4px;color:${brutaColor};font-weight:600">${(r.ganBrutaSpin*1000).toFixed(2)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:${rbColor};font-weight:600">${(r.ganRbSpin*1000).toFixed(2)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:#16a34a">${(r.rbSpin*1000).toFixed(2)}€</td></tr>
+          <tr><td style="padding:5px 4px">Total (${e.totalSpins.toLocaleString()} spins · ${r.horasTotal.toFixed(0)}h)</td>
+            <td style="text-align:right;padding:5px 4px;color:${brutaColor};font-weight:700">${r.ganBrutaTotal.toFixed(0)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:${rbColor};font-weight:700">${r.ganRbTotal.toFixed(0)}€</td>
+            <td style="text-align:right;padding:5px 4px;color:#16a34a;font-weight:700">${r.rbTotal.toFixed(0)}€</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  // Gráfica comparativa si hay >1 escenario
+  let graficaHtml='';
+  if(resultados.length>1){
+    graficaHtml=`<div class="chart-card" style="margin-top:4px">
+      <div class="chart-title">Comparativa — Ganancia por hora (con RB)</div>
+      <div class="chart-wrap"><canvas id="chart-sim-comparativa"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Comparativa — Ganancia total (${resultados[0].e.totalSpins.toLocaleString()} spins)</div>
+      <div class="chart-wrap"><canvas id="chart-sim-total"></canvas></div>
+    </div>`;
+  }
+
+  c.innerHTML=tarjetas+graficaHtml;
+
+  if(resultados.length>1){
+    const labels=resultados.map(({e})=>`${e.sala} ${e.stake}€`);
+    const colores=resultados.map(({col})=>col);
+    const chartOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}},grid:{display:false}},
+        y:{ticks:{font:{size:10},callback:v=>v+'€'},grid:{color:'#E4E7EC'}}}};
+    // Por hora
+    if(charts['chart-sim-comparativa'])charts['chart-sim-comparativa'].destroy();
+    const ctx1=document.getElementById('chart-sim-comparativa')?.getContext('2d');
+    if(ctx1) charts['chart-sim-comparativa']=new Chart(ctx1,{type:'bar',
+      data:{labels,datasets:[
+        {label:'Bruto',data:resultados.map(({r})=>parseFloat(r.ganBrutaHora.toFixed(2))),backgroundColor:colores.map(c=>c+'44'),borderColor:colores,borderWidth:2,borderRadius:4},
+        {label:'Con RB',data:resultados.map(({r})=>parseFloat(r.ganRbHora.toFixed(2))),backgroundColor:colores.map(c=>c+'cc'),borderColor:colores,borderWidth:2,borderRadius:4},
+      ]},options:{...chartOpts,plugins:{...chartOpts.plugins,legend:{display:true,labels:{font:{size:11}}}}}});
+    // Total
+    if(charts['chart-sim-total'])charts['chart-sim-total'].destroy();
+    const ctx2=document.getElementById('chart-sim-total')?.getContext('2d');
+    if(ctx2) charts['chart-sim-total']=new Chart(ctx2,{type:'bar',
+      data:{labels,datasets:[
+        {label:'Bruto',data:resultados.map(({r})=>Math.round(r.ganBrutaTotal)),backgroundColor:colores.map(c=>c+'44'),borderColor:colores,borderWidth:2,borderRadius:4},
+        {label:'Con RB',data:resultados.map(({r})=>Math.round(r.ganRbTotal)),backgroundColor:colores.map(c=>c+'cc'),borderColor:colores,borderWidth:2,borderRadius:4},
+      ]},options:{...chartOpts,plugins:{...chartOpts.plugins,legend:{display:true,labels:{font:{size:11}}}}}});
+  }
 }
 
 // ── Session Form ──────────────────────────────────────────────
@@ -1752,58 +1966,133 @@ function openMovimientoModal(){
   document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
   document.querySelector('#mov-tipo-pills [data-tipo="ingreso"]').classList.add('selected');
   selectedMovTipo='ingreso';
+  rebuildMovSelects();
   document.getElementById('modal-movimiento').classList.add('open');
 }
 function selectMovTipo(btn){
   document.querySelectorAll('#mov-tipo-pills .pill').forEach(p=>p.classList.remove('selected'));
   btn.classList.add('selected'); selectedMovTipo=btn.dataset.tipo;
+  rebuildMovSelects();
 }
-// Cuando se elige "Otra cuenta...", se revela el input de texto libre para casos
-// puntuales (salas no estándar, cuentas bancarias específicas, etc.)
+// ── Carga cuentas reales de Patrimonio para los desplegables ──
+async function cargarCuentasPatrimonio(){
+  try{
+    const {data} = await sb.from('saldos').select('grupo_id,subcuenta').in('grupo_id',['liquido','poker']);
+    if(!data) return;
+    _cuentasLiquido=[...new Set(data.filter(r=>r.grupo_id==='liquido').map(r=>r.subcuenta))].sort();
+    _cuentasPoker=[...new Set(data.filter(r=>r.grupo_id==='poker').map(r=>r.subcuenta))].sort();
+  }catch(e){ console.error('No se pudieron cargar cuentas de Patrimonio:', e); }
+}
+// Reconstruye los selects según tipo: ingreso=líquido→poker, retirada=poker→líquido
+function rebuildMovSelects(){
+  const tipo=selectedMovTipo;
+  function buildOpts(lista,grupo){
+    let h='<option value="">— Selecciona —</option>';
+    if(lista.length) h+=`<optgroup label="${grupo}">`+lista.map(c=>`<option value="${c}">${c}</option>`).join('')+'</optgroup>';
+    h+='<option value="__custom__">Otra cuenta...</option>';
+    return h;
+  }
+  const oSel=document.getElementById('mov-origen-select');
+  const dSel=document.getElementById('mov-destino-select');
+  const oLbl=document.getElementById('mov-origen-label');
+  const dLbl=document.getElementById('mov-destino-label');
+  if(!oSel||!dSel) return;
+  if(tipo==='ingreso'){
+    oLbl.textContent='Origen (cuenta bancaria)'; dLbl.textContent='Destino (sala de poker)';
+    oSel.innerHTML=buildOpts(_cuentasLiquido,'Líquido');
+    dSel.innerHTML=buildOpts(_cuentasPoker,'Póker');
+  } else if(tipo==='retirada'){
+    oLbl.textContent='Origen (sala de poker)'; dLbl.textContent='Destino (cuenta bancaria)';
+    oSel.innerHTML=buildOpts(_cuentasPoker,'Póker');
+    dSel.innerHTML=buildOpts(_cuentasLiquido,'Líquido');
+  } else {
+    oLbl.textContent='Origen'; dLbl.textContent='Destino';
+    const todas=[..._cuentasPoker,..._cuentasLiquido];
+    oSel.innerHTML=buildOpts(todas,'Cuentas'); dSel.innerHTML=buildOpts(todas,'Cuentas');
+  }
+  oSel.value=''; dSel.value='';
+  document.getElementById('mov-origen-custom').style.display='none';
+  document.getElementById('mov-destino-custom').style.display='none';
+}
 function onMovCuentaChange(cual){
-  const sel = document.getElementById('mov-'+cual+'-select');
-  const custom = document.getElementById('mov-'+cual+'-custom');
-  custom.style.display = (sel.value === '__custom__') ? 'block' : 'none';
-  if (sel.value === '__custom__') custom.focus();
+  const sel=document.getElementById('mov-'+cual+'-select');
+  const custom=document.getElementById('mov-'+cual+'-custom');
+  custom.style.display=(sel.value==='__custom__')?'block':'none';
+  if(sel.value==='__custom__') custom.focus();
 }
-// Devuelve el valor real de la cuenta: el del select, o el texto libre si se eligió "Otra cuenta..."
 function getMovCuenta(cual){
-  const sel = document.getElementById('mov-'+cual+'-select').value;
-  if (sel === '__custom__') return document.getElementById('mov-'+cual+'-custom').value.trim();
+  const sel=document.getElementById('mov-'+cual+'-select').value;
+  if(sel==='__custom__') return document.getElementById('mov-'+cual+'-custom').value.trim();
   return sel;
 }
-// Mapeo sala spins → nombre de subcuenta en Patrimonio (grupo 'poker')
-// Se usa para decidir si un movimiento de Spins debe replicarse en Patrimonio
-const PATRIMONIO_SUBCUENTA_MAP = {
-  'PokerStars':  'PokerStars',
-  'Winamax':     'Winamax (€ reales)',
-  'PartyPoker':  'PartyPoker (€ reales)',
+
+// ── Mapeo de nombres entre Spins y Patrimonio ──
+const PATRIMONIO_SUBCUENTA_MAP={
+  'PokerStars':'PokerStars','Winamax':'Winamax (€ reales)','PartyPoker':'PartyPoker (€ reales)',
 };
-// Si el origen/destino escrito en Spins coincide (insensible a mayúsculas) con una sala estándar,
-// se traduce al nombre exacto de subcuenta que usa Patrimonio. Si no coincide con nada (p.ej. "Banco"),
-// se deja tal cual: Patrimonio mostrará ese texto igualmente en origen/destino.
-function mapSubcuentaPatrimonio(texto){
-  if(!texto)return texto;
+const PATRIMONIO_SUBCUENTA_INVERSO={
+  'PokerStars':'PokerStars',
+  'Winamax (€ reales)':'Winamax','Winamax (T€ — euros de torneo)':'Winamax',
+  'PartyPoker (€ reales)':'PartyPoker','PartyPoker (T€ — euros de torneo)':'PartyPoker',
+};
+// Resuelve cualquier forma (corta o larga) de nombre de sala a la sala corta estándar,
+// o null si no es una sala de poker reconocida.
+function resolverSalaCorta(texto){
+  if(!texto) return null;
   const t=texto.trim();
-  for(const sala in PATRIMONIO_SUBCUENTA_MAP){
-    if(t.toLowerCase()===sala.toLowerCase())return PATRIMONIO_SUBCUENTA_MAP[sala];
-  }
+  if(PATRIMONIO_SUBCUENTA_INVERSO[t]) return PATRIMONIO_SUBCUENTA_INVERSO[t];
+  for(const sala in PATRIMONIO_SUBCUENTA_MAP){ if(t.toLowerCase()===sala.toLowerCase()) return sala; }
+  return null;
+}
+function mapSubcuentaPatrimonio(texto){
+  if(!texto) return texto;
+  const t=texto.trim();
+  // Si ya es un nombre largo reconocido de Patrimonio, lo devuelve tal cual
+  if(PATRIMONIO_SUBCUENTA_INVERSO[t]) return t;
+  // Si es un nombre corto, lo traduce al nombre largo
+  for(const sala in PATRIMONIO_SUBCUENTA_MAP){ if(t.toLowerCase()===sala.toLowerCase()) return PATRIMONIO_SUBCUENTA_MAP[sala]; }
+  // Para cuentas líquidas (Sabadell, Santander...) se devuelve tal cual
   return t;
 }
+
+// ── Actualización de cajero desde movimientos de Finanzas ──
+// Acepta tanto nombre corto ('PartyPoker') como nombre largo ('PartyPoker (€ reales)').
+// Determina el tipo de cajero ('real'/'torneo'/'millas') del nombre si no se fuerza.
+async function updateCajeroSpins(subcuentaOSala, delta, tipoCajeroForzado=null){
+  const sala=resolverSalaCorta(subcuentaOSala);
+  if(!sala) return false;
+  let tipoCajero=tipoCajeroForzado||'real';
+  if(!tipoCajeroForzado){
+    const t=(subcuentaOSala||'').toLowerCase();
+    if(t.includes('torneo')||t.includes('t€')) tipoCajero='torneo';
+    else if(t.includes('millas')) tipoCajero='millas';
+  }
+  try{
+    const {data:rows}=await sb.from('spins_cajeros').select('id,saldo').eq('sala',sala).eq('tipo',tipoCajero);
+    if(!rows||!rows.length) return false;
+    const nuevoSaldo=Math.round(((parseFloat(rows[0].saldo)||0)+delta)*100)/100;
+    await sb.from('spins_cajeros').update({saldo:nuevoSaldo,updated_at:new Date().toISOString()}).eq('id',rows[0].id);
+    return true;
+  }catch(e){ console.error('Error actualizando cajero:',e); return false; }
+}
+
+// ── Cruce Spins → Patrimonio ──
 async function crossWritePatrimonioMovimiento(fecha,tipo,origen,destino,cantidad,notas){
-  // tipo de Spins (ingreso/retirada/transferencia) → tipo que entiende Patrimonio (dep_poker/ret_poker)
-  const tipoPat = tipo==='retirada' ? 'ret_poker' : 'dep_poker';
-  const m={
-    fecha, tipo:tipoPat, importe:cantidad,
-    origen:mapSubcuentaPatrimonio(origen),
-    destino:mapSubcuentaPatrimonio(destino),
-    nota:(notas?notas+' ':'')+'(desde Spins Tracker)',
-    es_historico:false
-  };
-  // Ya NO se traga el error: si falla, se relanza para que saveMovimiento() sepa
-  // exactamente qué falló (antes quedaba oculto en console.error, invisible en móvil).
-  const { error } = await sb.from('movimientos').insert([m]);
-  if (error) throw new Error('Patrimonio: ' + error.message);
+  const tipoPat=tipo==='retirada'?'ret_poker':'dep_poker';
+  const m={fecha,tipo:tipoPat,importe:cantidad,origen:mapSubcuentaPatrimonio(origen),destino:mapSubcuentaPatrimonio(destino),nota:(notas?notas+' ':'')+'(desde Spins Tracker)',es_historico:false};
+  const {error}=await sb.from('movimientos').insert([m]);
+  if(error) throw new Error('Patrimonio: '+error.message);
+}
+// Cuando se borra en Spins, limpia también la fila espejo en Patrimonio (solo el historial)
+async function crossDeleteFromSpins(m){
+  const tipoPat=m.tipo==='retirada'?'ret_poker':'dep_poker';
+  const origenPat=mapSubcuentaPatrimonio(m.origen), destinoPat=mapSubcuentaPatrimonio(m.destino);
+  // Busca por fecha+tipo+importe+origen+destino, sin filtrar por nota,
+  // para que funcione tanto si fue creado desde Spins como desde Patrimonio.
+  const {data:rows}=await sb.from('movimientos').select('id')
+    .eq('fecha',m.fecha).eq('tipo',tipoPat).eq('importe',m.cantidad)
+    .eq('origen',origenPat).eq('destino',destinoPat);
+  if(rows&&rows.length) await sb.from('movimientos').delete().eq('id',rows[0].id);
 }
 
 async function saveMovimiento(){
@@ -1816,26 +2105,40 @@ async function saveMovimiento(){
   if(!origen||!destino||isNaN(cantidad)||!fecha){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return}
   try{
     await sb.from('spins_movimientos').insert([{fecha,tipo:selectedMovTipo,origen,destino,cantidad,notas}]);
-  }catch(e){
-    errEl.textContent='Error al guardar en Spins: '+(e.message||e);
-    errEl.style.display='block';
-    return;
-  }
-  // El movimiento en Spins ya se guardó correctamente. El cruce a Patrimonio es un paso
-  // adicional — si falla, se avisa por separado en lugar de aparentar que todo falló.
-  const tocaPoker = Object.keys(PATRIMONIO_SUBCUENTA_MAP).some(sala=>
-    origen.toLowerCase()===sala.toLowerCase() || destino.toLowerCase()===sala.toLowerCase()
-  );
-  if(tocaPoker && selectedMovTipo!=='transferencia'){
+  }catch(e){errEl.textContent='Error al guardar: '+(e.message||e);errEl.style.display='block';return}
+  // Actualizar el cajero de la sala (era el bug principal: nunca se tocaba spins_cajeros aquí)
+  if(selectedMovTipo==='ingreso') await updateCajeroSpins(destino, cantidad);
+  else if(selectedMovTipo==='retirada') await updateCajeroSpins(origen, -cantidad);
+  // Cruce a Patrimonio si toca una sala estándar
+  const tocaPoker=resolverSalaCorta(origen)||resolverSalaCorta(destino);
+  if(tocaPoker&&selectedMovTipo!=='transferencia'){
     try{
       await crossWritePatrimonioMovimiento(fecha,selectedMovTipo,origen,destino,cantidad,notas);
     }catch(e){
-      showToast('Guardado en Spins, pero NO se replicó en Patrimonio: '+e.message);
-      closeModal('modal-movimiento'); await loadAll();
-      return;
+      showToast('Guardado en Spins pero NO replicado en Patrimonio: '+e.message);
+      closeModal('modal-movimiento'); await loadAll(); return;
     }
   }
-  closeModal('modal-movimiento'); showToast('Movimiento guardado ✓ (Spins + Patrimonio)'); await loadAll();
+  closeModal('modal-movimiento'); showToast('Movimiento guardado ✓'); await loadAll();
+}
+
+async function deleteMovimiento(id){
+  const m=allMovimientos.find(x=>String(x.id)===String(id));
+  try{
+    if(m){
+      // Revertir el cajero
+      if(m.tipo==='ingreso') await updateCajeroSpins(m.destino,-m.cantidad);
+      else if(m.tipo==='retirada') await updateCajeroSpins(m.origen, m.cantidad);
+      // Limpiar la fila espejo en Patrimonio si existía
+      const tocaPoker=resolverSalaCorta(m.origen)||resolverSalaCorta(m.destino);
+      if(tocaPoker&&m.tipo!=='transferencia'){
+        try{ await crossDeleteFromSpins(m); }catch(e){ console.error('crossDelete falló:',e); }
+      }
+    }
+    await sb.from('spins_movimientos').delete().eq('id',id);
+    showToast('✓ Eliminado y cajero revertido');
+    await loadAll();
+  }catch(e){ showToast('Error al eliminar: '+e.message); }
 }
 
 // ── Promo ─────────────────────────────────────────────────────
