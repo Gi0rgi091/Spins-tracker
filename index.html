@@ -1367,17 +1367,26 @@ function buildHora(ses){
   ses.forEach(s=>{const h=horaIniNum(s.hora_fin,s.minutos_jugados);if(!by[h])by[h]=[];by[h].push(s.chips_ev)});
   const labels=Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+'h');
   const data=Array.from({length:24},(_,i)=>by[i]?avg(by[i]):null);
-  buildBar('chart-hora',labels,data);
+  const counts=Array.from({length:24},(_,i)=>by[i]?by[i].length:0);
+  buildBar('chart-hora',labels,data,counts);
 }
 function buildDia(ses){
   const dias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],by={};
   ses.forEach(s=>{const dow=(new Date(s.fecha+'T00:00:00').getDay()+6)%7;if(!by[dow])by[dow]=[];by[dow].push(s.chips_ev)});
-  buildBar('chart-dia',dias,dias.map((_,i)=>by[i]?avg(by[i]):null));
+  const counts=dias.map((_,i)=>by[i]?by[i].length:0);
+  buildBar('chart-dia',dias,dias.map((_,i)=>by[i]?avg(by[i]):null),counts);
 }
 function buildPeriodo(ses){
-  const per=['1–10','11–20','21–31'],by={0:[],1:[],2:[]};
-  ses.forEach(s=>{const day=new Date(s.fecha+'T00:00:00').getDate();by[day<=10?0:day<=20?1:2].push(s.chips_ev)});
-  buildBar('chart-periodo',per,[0,1,2].map(i=>by[i].length?avg(by[i]):null));
+  // 4 tramos de máx. 7-8 días cada uno (en vez de 3 tramos de ~10 días),
+  // para dar una lectura más granular del rendimiento a lo largo del mes.
+  const per=['1–7','8–15','16–23','24–31'],by={0:[],1:[],2:[],3:[]};
+  ses.forEach(s=>{
+    const day=new Date(s.fecha+'T00:00:00').getDate();
+    const idx=day<=7?0:day<=15?1:day<=23?2:3;
+    by[idx].push(s.chips_ev);
+  });
+  const counts=[0,1,2,3].map(i=>by[i].length);
+  buildBar('chart-periodo',per,[0,1,2,3].map(i=>by[i].length?avg(by[i]):null),counts);
 }
 function buildAcum(){
   const ses=getMonthSesiones().sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora_fin.localeCompare(b.hora_fin));
@@ -1390,13 +1399,49 @@ function buildAcum(){
   const col=ac>=0?'#027A48':'#B42318';
   charts['chart-acum']=new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:col,backgroundColor:col+'20',fill:true,tension:.3,pointRadius:3,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxTicksLimit:8},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>v+'€'},grid:{color:'#E4E7EC'}}}}});
 }
-function buildBar(id,labels,data){
+function buildBar(id,labels,data,counts){
   if(charts[id])charts[id].destroy();
   const canvas=document.getElementById(id);
   if(!canvas)return;
   const ctx=canvas.getContext('2d');
   const colors=data.map(v=>v==null?'#E4E7EC':v>=0?'#027A48CC':'#B42318CC');
-  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:data.map(v=>v??0),backgroundColor:colors,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#E4E7EC'}}}}});
+  // counts: nº de sesiones detrás de cada barra. Se muestra en el tooltip y como
+  // etiqueta pequeña encima de la barra, para no sacar conclusiones de muestras insuficientes.
+  const datalabelPlugin={
+    id:'sampleCounts',
+    afterDatasetsDraw(chart){
+      if(!counts)return;
+      const{ctx,scales:{x,y}}=chart;
+      ctx.save();
+      ctx.font='9px DM Sans, sans-serif';
+      ctx.textAlign='center';
+      ctx.fillStyle='#98A2B3';
+      data.forEach((v,i)=>{
+        if(v==null||!counts[i])return;
+        const xPos=x.getPixelForValue(i);
+        const yVal=y.getPixelForValue(v);
+        const yPos=v>=0?yVal-6:yVal+14;
+        ctx.fillText('n='+counts[i],xPos,yPos);
+      });
+      ctx.restore();
+    }
+  };
+  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:data.map(v=>v??0),backgroundColor:colors,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          label:ctx=>{
+            const v=data[ctx.dataIndex];
+            const n=counts?counts[ctx.dataIndex]:null;
+            const base=v==null?'Sin datos':fmtE(v)+' EV/spin';
+            return n?base+' · '+n+' sesión'+(n===1?'':'es'):base;
+          }
+        }}
+      },
+      scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#E4E7EC'}}}
+    },
+    plugins:counts?[datalabelPlugin]:[]
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1421,7 +1466,13 @@ function addSimEscenario(){
     {sala:'PokerStars',stake:25,mesas:4,spinsHoraMesa:30,totalSpins:1000,chipEV:35,rakePct:6,rbPct:35},
     {sala:'iPoker',stake:20,mesas:4,spinsHoraMesa:28,totalSpins:1000,chipEV:32,rakePct:8,rbPct:45},
   ];
-  const def=defaults[simEscenarios.length%defaults.length];
+  // Los 3 primeros escenarios usan ejemplos reales como punto de partida.
+  // A partir del 4º, se usa un nombre genérico y editable (evita repetir "Winamax"
+  // dos veces, que puede parecer que el campo no admite otro nombre).
+  const idx=simEscenarios.length;
+  const def=idx<defaults.length
+    ? defaults[idx]
+    : {sala:`Escenario ${idx+1}`,stake:25,mesas:4,spinsHoraMesa:30,totalSpins:1000,chipEV:35,rakePct:7,rbPct:30};
   simEscenarios.push({id,...def});
   renderSimEscenarios();
   calcularSimulador();
@@ -1482,7 +1533,7 @@ function renderSimEscenarios(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
-          <input id="sim-${e.id}-sala" value="${e.sala}" placeholder="Sala / escenario"
+          <input id="sim-${e.id}-sala" value="${e.sala}" placeholder="ej: iPoker 20s, iPoker 50s..."
             style="font-weight:600;font-size:14px;border:none;background:transparent;color:var(--text);font-family:inherit;outline:none;width:160px"
             oninput="onSimInput(${e.id})">
         </div>
