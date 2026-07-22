@@ -268,6 +268,13 @@
         <button class="ses-view-btn" onclick="setSesView('semanal')">Semanal</button>
         <button class="ses-view-btn" onclick="setSesView('mensual')">Mensual</button>
       </div>
+      <div style="padding:0 16px 10px">
+        <label for="xml-import-input" style="display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg2);border:1px dashed var(--border);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Importar XML de PartyPoker (varios archivos a la vez)
+        </label>
+        <input type="file" id="xml-import-input" accept=".xml" multiple style="display:none" onchange="handleXmlImport(this.files)">
+      </div>
       <div id="sesiones-list"></div>
     </div>
 
@@ -1659,6 +1666,137 @@ function calcularSimulador(){
         {label:'Con RB',data:resultados.map(({r})=>Math.round(r.ganRbTotal)),backgroundColor:colores.map(c=>c+'cc'),borderColor:colores,borderWidth:2,borderRadius:4},
       ]},options:{...chartOpts,plugins:{...chartOpts.plugins,legend:{display:true,labels:{font:{size:11}}}}}});
   }
+}
+
+// ── Importador XML de PartyPoker (red iPoker) ──────────────────────────
+// Los spins se guardan en Drive con al menos 2 archivos por spin (mismo
+// sessioncode): uno completo (con startdate/duration/win/place — este
+// es el que usamos) y otro "resumido" sin datos privados (se descarta).
+// El XML no incluye Chips EV — ese dato sigue viniendo de HM3/PT4 y se
+// introduce a mano tras la importación.
+async function handleXmlImport(fileList){
+  const files=Array.from(fileList||[]);
+  if(!files.length)return;
+  showToast('Leyendo '+files.length+' archivo'+(files.length===1?'':'s')+'...');
+  const parsed=[];
+  for(const f of files){
+    try{
+      const text=await f.text();
+      const doc=new DOMParser().parseFromString(text,'text/xml');
+      if(doc.querySelector('parsererror'))continue;
+      const sessionEl=doc.querySelector('session');
+      if(!sessionEl)continue;
+      const sessioncode=sessionEl.getAttribute('sessioncode');
+      const g=sessionEl.querySelector('general');
+      if(!g)continue;
+      const get=tag=>g.querySelector(tag)?.textContent||'';
+      const startdate=get('startdate'); // solo está en el archivo "completo"
+      if(!startdate)continue; // descarta el archivo resumido/anónimo (sin startdate = sin datos privados)
+      parsed.push({
+        sessioncode,
+        startdate,
+        totalbuyin:parseMoneyStr(get('totalbuyin')),
+        win:parseMoneyStr(get('win')),
+        tablename:get('tablename'),
+      });
+    }catch(e){ console.error('Error leyendo XML:',f.name,e); }
+  }
+  if(!parsed.length){ showToast('No se pudo leer ningún spin válido de esos archivos'); return; }
+
+  // Descartar duplicados por sessioncode (si subes el mismo spin dos veces)
+  const bySessioncode={};
+  parsed.forEach(p=>{ bySessioncode[p.sessioncode]=p; });
+  const spins=Object.values(bySessioncode);
+
+  // Agrupar por fecha (día natural) + stake (buy-in), que es como Spins Tracker
+  // organiza los niveles dentro de una sesión.
+  const grupos={};
+  spins.forEach(sp=>{
+    const fecha=sp.startdate.slice(0,10); // YYYY-MM-DD
+    const key=fecha+'|'+sp.totalbuyin;
+    if(!grupos[key])grupos[key]={fecha,stake:sp.totalbuyin,spins:[]};
+    grupos[key].spins.push(sp);
+  });
+
+  mostrarResumenImportacion(Object.values(grupos), spins.length);
+  document.getElementById('xml-import-input').value=''; // permite reimportar el mismo archivo si hace falta
+}
+
+function parseMoneyStr(s){
+  // "€60" → 60, "€1.40" → 1.40, "" → 0
+  if(!s)return 0;
+  const n=parseFloat(s.replace('€','').replace(',','.'));
+  return isNaN(n)?0:n;
+}
+
+let _xmlImportGrupos=[];
+function mostrarResumenImportacion(grupos,totalSpins){
+  _xmlImportGrupos=grupos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const resumenHtml=_xmlImportGrupos.map((gr,idx)=>{
+    const gan=gr.spins.reduce((a,s)=>a+s.win,0);
+    const apost=gr.spins.length*gr.stake;
+    const fechaFmt=new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
+      <span>${fechaFmt} · ${gr.stake.toFixed(2)}€ · ${gr.spins.length} spins</span>
+      <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
+    </div>`;
+  }).join('');
+  const modalHtml=`
+    <div id="modal-xml-import" class="modal-overlay open" onclick="if(event.target===this)closeXmlImportModal()">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Importar ${totalSpins} spins</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+          Se han agrupado en ${_xmlImportGrupos.length} sesión${_xmlImportGrupos.length===1?'':'es'} por día y stake.
+          Selecciona a cuál quieres crear/rellenar el formulario — <strong>el Chips EV no viene en estos archivos</strong>,
+          tendrás que añadirlo desde HM3/PT4 tras la importación.
+        </p>
+        <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">${resumenHtml}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${_xmlImportGrupos.map((gr,idx)=>`<button onclick="aplicarImportacionXml(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px;font-family:inherit;font-size:13px;cursor:pointer">
+            Rellenar formulario: ${new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} · ${gr.stake.toFixed(2)}€ (${gr.spins.length} spins)
+          </button>`).join('')}
+        </div>
+        <div class="modal-footer"><button class="btn btn-ghost btn-sm" onclick="closeXmlImportModal()">Cerrar</button></div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend',modalHtml);
+}
+function closeXmlImportModal(){
+  document.getElementById('modal-xml-import')?.remove();
+}
+
+// Rellena el formulario de Nueva Sesión con los datos agregados de un grupo importado.
+// Detecta la sala a partir del nombre de mesa (tablename) cuando es reconocible.
+function aplicarImportacionXml(idx){
+  const gr=_xmlImportGrupos[idx];
+  if(!gr)return;
+  closeXmlImportModal();
+  openSesionModal(); // reset limpio del formulario
+
+  const totalSpins=gr.spins.length;
+  const totalGanado=gr.spins.reduce((a,s)=>a+s.win,0);
+  const primeraHora=gr.spins.reduce((min,s)=>s.startdate<min?s.startdate:min,gr.spins[0].startdate);
+  const ultimaHora=gr.spins.reduce((max,s)=>{
+    const fin=new Date(s.startdate.replace(' ','T'));
+    return fin>max?fin:max;
+  },new Date(gr.spins[0].startdate.replace(' ','T')));
+
+  // Sala: estos XML provienen de PartyPoker (red iPoker), no de Winamax.
+  // 'PartyPoker' es el nombre exacto reconocido como pill estándar en el formulario.
+  setSalaByName('PartyPoker');
+  document.getElementById('ses-fecha').value=gr.fecha;
+  document.getElementById('ses-hora-fin').value=ultimaHora.toTimeString().slice(0,5);
+  sesionDateManuallyChanged=true; // ya viene fijada por el XML, no recalcular con la hora actual
+
+  setNivelStakeByVal(1,gr.stake);
+  document.getElementById('spins-1').value=totalSpins;
+  document.getElementById('ganado-1').value=totalGanado.toFixed(2);
+  // ev-1 se deja vacío a propósito — el usuario lo rellena desde HM3/PT4
+
+  document.getElementById('ses-notas').value='Importado desde XML PartyPoker ('+totalSpins+' spins)';
+  calcTotales();
+  showToast('Formulario rellenado — añade el Chips EV desde HM3/PT4 y guarda');
 }
 
 // ── Session Form ──────────────────────────────────────────────
