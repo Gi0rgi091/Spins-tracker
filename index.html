@@ -1697,6 +1697,8 @@ async function handleXmlImport(fileList){
         startdate,
         totalbuyin:parseMoneyStr(get('totalbuyin')),
         win:parseMoneyStr(get('win')),
+        durationSec:parseDurationStr(get('duration')),
+        place:parseInt(get('place'))||null, // 1 = ganado el spin (ITM), 2/3 = eliminado
         tablename:get('tablename'),
       });
     }catch(e){ console.error('Error leyendo XML:',f.name,e); }
@@ -1708,11 +1710,13 @@ async function handleXmlImport(fileList){
   parsed.forEach(p=>{ bySessioncode[p.sessioncode]=p; });
   const spins=Object.values(bySessioncode);
 
-  // Agrupar por fecha (día natural) + stake (buy-in), que es como Spins Tracker
-  // organiza los niveles dentro de una sesión.
+  // Agrupar por "día de póker" (no fecha calendario) + stake, igual que el resto
+  // de la app: una sesión que empieza a las 23:30 y termina 01:30 del día siguiente
+  // cuenta entera como el día en que empezó — igual que si la cargaras a mano.
+  // Regla: si la hora de inicio del spin es antes de las 06:00, se imputa al día anterior.
   const grupos={};
   spins.forEach(sp=>{
-    const fecha=sp.startdate.slice(0,10); // YYYY-MM-DD
+    const fecha=diaPoker(sp.startdate);
     const key=fecha+'|'+sp.totalbuyin;
     if(!grupos[key])grupos[key]={fecha,stake:sp.totalbuyin,spins:[]};
     grupos[key].spins.push(sp);
@@ -1720,6 +1724,22 @@ async function handleXmlImport(fileList){
 
   mostrarResumenImportacion(Object.values(grupos), spins.length);
   document.getElementById('xml-import-input').value=''; // permite reimportar el mismo archivo si hace falta
+}
+
+// Convierte "2026-07-24 01:30:00" en la fecha de "día de póker" correspondiente:
+// spins jugados antes de las 06:00 se imputan al día anterior (misma sesión nocturna).
+function diaPoker(startdate){
+  const d=new Date(startdate.replace(' ','T'));
+  if(d.getHours()<6) d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+// "00:06:39" → 399 (segundos)
+function parseDurationStr(s){
+  if(!s)return 0;
+  const partes=s.split(':').map(Number);
+  if(partes.length!==3||partes.some(isNaN))return 0;
+  return partes[0]*3600+partes[1]*60+partes[2];
 }
 
 function parseMoneyStr(s){
@@ -1735,10 +1755,16 @@ function mostrarResumenImportacion(grupos,totalSpins){
   const resumenHtml=_xmlImportGrupos.map((gr,idx)=>{
     const gan=gr.spins.reduce((a,s)=>a+s.win,0);
     const apost=gr.spins.length*gr.stake;
+    const mins=Math.round(gr.spins.reduce((a,s)=>a+s.durationSec,0)/60);
+    const itm=gr.spins.filter(s=>s.place===1).length;
+    const itmPct=gr.spins.length?(itm/gr.spins.length*100).toFixed(0):0;
     const fechaFmt=new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
-    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
-      <span>${fechaFmt} · ${gr.stake.toFixed(2)}€ · ${gr.spins.length} spins</span>
-      <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
+    return`<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>${fechaFmt} · ${gr.stake.toFixed(2)}€ · ${gr.spins.length} spins</span>
+        <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
+      </div>
+      <div style="color:var(--muted);font-size:11px;margin-top:2px">${mins}min · ITM ${itm}/${gr.spins.length} (${itmPct}%)</div>
     </div>`;
   }).join('');
   const modalHtml=`
@@ -1747,9 +1773,10 @@ function mostrarResumenImportacion(grupos,totalSpins){
         <div class="modal-handle"></div>
         <div class="modal-title">Importar ${totalSpins} spins</div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
-          Se han agrupado en ${_xmlImportGrupos.length} sesión${_xmlImportGrupos.length===1?'':'es'} por día y stake.
-          Selecciona a cuál quieres crear/rellenar el formulario — <strong>el Chips EV no viene en estos archivos</strong>,
-          tendrás que añadirlo desde HM3/PT4 tras la importación.
+          Se han agrupado en ${_xmlImportGrupos.length} sesión${_xmlImportGrupos.length===1?'':'es'} por día de póker
+          (spins antes de las 06:00 cuentan para el día anterior) y stake.
+          Se rellenan spins, ganancia, duración e ITM automáticamente —
+          <strong>el Chips EV no viene en estos archivos</strong>, tendrás que añadirlo desde HM3/PT4.
         </p>
         <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">${resumenHtml}</div>
         <div style="display:flex;flex-direction:column;gap:6px">
@@ -1767,7 +1794,6 @@ function closeXmlImportModal(){
 }
 
 // Rellena el formulario de Nueva Sesión con los datos agregados de un grupo importado.
-// Detecta la sala a partir del nombre de mesa (tablename) cuando es reconocible.
 function aplicarImportacionXml(idx){
   const gr=_xmlImportGrupos[idx];
   if(!gr)return;
@@ -1776,17 +1802,24 @@ function aplicarImportacionXml(idx){
 
   const totalSpins=gr.spins.length;
   const totalGanado=gr.spins.reduce((a,s)=>a+s.win,0);
-  const primeraHora=gr.spins.reduce((min,s)=>s.startdate<min?s.startdate:min,gr.spins[0].startdate);
-  const ultimaHora=gr.spins.reduce((max,s)=>{
-    const fin=new Date(s.startdate.replace(' ','T'));
-    return fin>max?fin:max;
-  },new Date(gr.spins[0].startdate.replace(' ','T')));
+  const totalSegundos=gr.spins.reduce((a,s)=>a+s.durationSec,0);
+  const itmCount=gr.spins.filter(s=>s.place===1).length;
+
+  // Hora de fin real = inicio del ÚLTIMO spin + su duración (no el inicio en sí).
+  const finales=gr.spins.map(s=>{
+    const inicio=new Date(s.startdate.replace(' ','T'));
+    return new Date(inicio.getTime()+s.durationSec*1000);
+  });
+  const horaFinReal=finales.reduce((max,f)=>f>max?f:max,finales[0]);
 
   // Sala: estos XML provienen de PartyPoker (red iPoker), no de Winamax.
   // 'PartyPoker' es el nombre exacto reconocido como pill estándar en el formulario.
   setSalaByName('PartyPoker');
   document.getElementById('ses-fecha').value=gr.fecha;
-  document.getElementById('ses-hora-fin').value=ultimaHora.toTimeString().slice(0,5);
+  document.getElementById('ses-hora-fin').value=horaFinReal.toTimeString().slice(0,5);
+  document.getElementById('ses-minutos').value=Math.round(totalSegundos/60);
+  document.getElementById('ses-itm-count').value=itmCount;
+  calcItmPct();
   sesionDateManuallyChanged=true; // ya viene fijada por el XML, no recalcular con la hora actual
 
   setNivelStakeByVal(1,gr.stake);
