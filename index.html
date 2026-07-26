@@ -1815,7 +1815,8 @@ async function acumularRivales(nuevos){
   const nicks=Object.keys(nuevos);
   if(!nicks.length)return;
   try{
-    const {data:existentes}=await sb.from('spins_rivales').select('*').in('nick',nicks);
+    const {data:existentes,error:errSelect}=await sb.from('spins_rivales').select('*').in('nick',nicks);
+    if(errSelect) throw errSelect;
     const porNick={}; (existentes||[]).forEach(r=>{porNick[r.nick]=r;});
     const upserts=nicks.map(nick=>{
       const n=nuevos[nick];
@@ -1830,17 +1831,32 @@ async function acumularRivales(nuevos){
         spins_ganados:(ex?.spins_ganados||0)+spinsGanadosNuevos,
       };
     });
-    for(const u of upserts) await sb.from('spins_rivales').upsert(u,{onConflict:'nick'});
-  }catch(e){ console.error('No se pudo guardar el análisis de rivales (¿existe la tabla spins_rivales?):',e); }
+    for(const u of upserts){
+      const {error:errUpsert}=await sb.from('spins_rivales').upsert(u,{onConflict:'nick'});
+      if(errUpsert) throw errUpsert;
+    }
+  }catch(e){
+    // Antes este error quedaba oculto en consola (silencioso para el usuario) —
+    // causa exacta de que el análisis de rivales nunca se rellenara sin previo aviso.
+    console.error('No se pudo guardar el análisis de rivales:',e);
+    showToast('⚠ No se pudo guardar el análisis de rivales: '+(e.message||'¿existe la tabla spins_rivales en Supabase?'));
+    return;
+  }
   await cargarRivales();
 }
 
 let _rivalesCache=[];
+let _rivalesError=null;
 async function cargarRivales(){
+  _rivalesError=null;
   try{
-    const {data}=await sb.from('spins_rivales').select('*').order('manos',{ascending:false});
+    const {data,error}=await sb.from('spins_rivales').select('*').order('manos',{ascending:false});
+    if(error) throw error;
     _rivalesCache=data||[];
-  }catch(e){ _rivalesCache=[]; }
+  }catch(e){
+    _rivalesCache=[];
+    _rivalesError=e.message||'No se pudo conectar con la tabla spins_rivales';
+  }
   renderRivalesTabla();
 }
 
@@ -1854,7 +1870,10 @@ function renderRivalesTabla(){
   else if(orden==='fichas_asc') filas.sort((a,b)=>a.fichas_netas-b.fichas_netas);
   else filas.sort((a,b)=>b.manos-a.manos);
   if(!filas.length){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Importa spins por XML para ver este análisis</td></tr>';
+    const msg=_rivalesError
+      ? `⚠ Error de conexión: ${_rivalesError}. Revisa que la tabla spins_rivales exista en Supabase.`
+      : 'Importa spins por XML para ver este análisis';
+    tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:${_rivalesError?'#dc2626':'var(--muted)'};padding:16px;font-size:11px">${msg}</td></tr>`;
     return;
   }
   tbody.innerHTML=filas.map(r=>{
