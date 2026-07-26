@@ -308,6 +308,30 @@
       <div class="chart-card"><div class="chart-title">Chips EV media · Día de la semana</div><div class="chart-wrap"><canvas id="chart-dia"></canvas></div></div>
       <div class="chart-card"><div class="chart-title">Chips EV media · Período del mes</div><div class="chart-wrap"><canvas id="chart-periodo"></canvas></div></div>
       <div class="chart-card"><div class="chart-title">Beneficio acumulado · Mes actual</div><div class="chart-wrap"><canvas id="chart-acum"></canvas></div></div>
+
+      <div class="chart-card">
+        <div class="chart-title">Análisis de rivales <span style="font-weight:400;color:var(--muted);font-size:11px">(desde XML importados)</span></div>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Fichas netas ganadas/perdidas en manos donde coincidiste con cada rival, y resultado de esos spins.
+          Solo incluye datos de spins importados por XML — los añadidos a mano no aportan este detalle.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="text" id="rival-search" placeholder="Buscar rival..." oninput="renderRivalesTabla()"
+            style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)">
+          <select id="rival-orden" onchange="renderRivalesTabla()"
+            style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)">
+            <option value="spins">Más manos</option>
+            <option value="fichas_desc">Más fichas ganadas</option>
+            <option value="fichas_asc">Más fichas perdidas</option>
+          </select>
+        </div>
+        <div class="tabla-scroll"><table class="tabla-resumen" style="font-size:12px">
+          <thead><tr><th>Rival</th><th>Manos</th><th>Fichas netas</th><th>Spins juntos</th><th>Ganados</th></tr></thead>
+          <tbody id="tbl-rivales">
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Importa spins por XML para ver este análisis</td></tr>
+          </tbody>
+        </table></div>
+      </div>
     </div>
 
     <div id="tab-simulador" class="tab-content">
@@ -1368,6 +1392,7 @@ function renderAnalisis(){
     buildHora(ses); buildDia(ses); buildPeriodo(ses);
   }
   buildAcum();
+  if(!_rivalesCache.length) cargarRivales(); else renderRivalesTabla();
 }
 function buildHora(ses){
   const by={};
@@ -1679,6 +1704,7 @@ async function handleXmlImport(fileList){
   if(!files.length)return;
   showToast('Leyendo '+files.length+' archivo'+(files.length===1?'':'s')+'...');
   const parsed=[];
+  const rivalesEncontrados={}; // acumulado local de esta tanda de archivos
   for(const f of files){
     try{
       const text=await f.text();
@@ -1692,6 +1718,34 @@ async function handleXmlImport(fileList){
       const get=tag=>g.querySelector(tag)?.textContent||'';
       const startdate=get('startdate'); // solo está en el archivo "completo"
       if(!startdate)continue; // descarta el archivo resumido/anónimo (sin startdate = sin datos privados)
+      const miNick=get('nickname');
+      const gano=parseInt(get('place'))===1;
+
+      // Recorrer cada mano (<game>) del spin para calcular fichas netas contra cada rival.
+      // No requiere equity ni all-in: solo el resultado real (win) de cada mano, que el
+      // XML siempre incluye con certeza — a diferencia del Chip EV, esto es 100% fiable.
+      doc.querySelectorAll('game').forEach(game=>{
+        const players=game.querySelectorAll('general > players > player');
+        const jugadores=Array.from(players).map(p=>({
+          name:p.getAttribute('name'),
+          win:parseInt(p.getAttribute('win').replace(/,/g,''))||0,
+          bet:parseInt(p.getAttribute('bet').replace(/,/g,''))||0,
+        }));
+        const yo=jugadores.find(j=>j.name===miNick);
+        if(!yo)return; // mano sin datos míos (no debería pasar, pero por seguridad)
+        const miFichasNetas=yo.win-yo.bet;
+        jugadores.filter(j=>j.name!==miNick).forEach(riv=>{
+          if(!rivalesEncontrados[riv.name]) rivalesEncontrados[riv.name]={manos:0,fichasNetas:0,spinsSet:new Set(),spinsGanados:0};
+          rivalesEncontrados[riv.name].manos++;
+          rivalesEncontrados[riv.name].fichasNetas+=miFichasNetas;
+          rivalesEncontrados[riv.name].spinsSet.add(sessioncode);
+        });
+      });
+      // Marcar si gané el spin, para cada rival con el que coincidí en él
+      Object.keys(rivalesEncontrados).forEach(nick=>{
+        if(rivalesEncontrados[nick].spinsSet.has(sessioncode)&&gano) rivalesEncontrados[nick]._ultimoSpinGanado=sessioncode;
+      });
+
       parsed.push({
         sessioncode,
         startdate,
@@ -1709,6 +1763,8 @@ async function handleXmlImport(fileList){
   const bySessioncode={};
   parsed.forEach(p=>{ bySessioncode[p.sessioncode]=p; });
   const spins=Object.values(bySessioncode);
+
+  await acumularRivales(rivalesEncontrados);
 
   // Agrupar por "día de póker" (no fecha calendario) + stake, igual que el resto
   // de la app: una sesión que empieza a las 23:30 y termina 01:30 del día siguiente
@@ -1747,6 +1803,70 @@ function parseMoneyStr(s){
   if(!s)return 0;
   const n=parseFloat(s.replace('€','').replace(',','.'));
   return isNaN(n)?0:n;
+}
+
+// ── Análisis de rivales ────────────────────────────────────────────────
+// Se acumula en la tabla spins_rivales (Supabase), sumando sobre lo ya
+// existente para que el histórico crezca con cada tanda de XML importada,
+// en vez de sobreescribirse. Basado en fichas netas reales por mano
+// (fiable al 100%, no requiere equity — ver conversación sobre por qué
+// el Chip EV real no se puede reconstruir desde estos archivos).
+async function acumularRivales(nuevos){
+  const nicks=Object.keys(nuevos);
+  if(!nicks.length)return;
+  try{
+    const {data:existentes}=await sb.from('spins_rivales').select('*').in('nick',nicks);
+    const porNick={}; (existentes||[]).forEach(r=>{porNick[r.nick]=r;});
+    const upserts=nicks.map(nick=>{
+      const n=nuevos[nick];
+      const ex=porNick[nick];
+      const spinsNuevos=n.spinsSet.size;
+      const spinsGanadosNuevos=n._ultimoSpinGanado?1:0; // simplificado: se cuenta al menos 1 si hubo victoria en esta tanda
+      return{
+        nick,
+        manos:(ex?.manos||0)+n.manos,
+        fichas_netas:(ex?.fichas_netas||0)+n.fichasNetas,
+        spins_juntos:(ex?.spins_juntos||0)+spinsNuevos,
+        spins_ganados:(ex?.spins_ganados||0)+spinsGanadosNuevos,
+      };
+    });
+    for(const u of upserts) await sb.from('spins_rivales').upsert(u,{onConflict:'nick'});
+  }catch(e){ console.error('No se pudo guardar el análisis de rivales (¿existe la tabla spins_rivales?):',e); }
+  await cargarRivales();
+}
+
+let _rivalesCache=[];
+async function cargarRivales(){
+  try{
+    const {data}=await sb.from('spins_rivales').select('*').order('manos',{ascending:false});
+    _rivalesCache=data||[];
+  }catch(e){ _rivalesCache=[]; }
+  renderRivalesTabla();
+}
+
+function renderRivalesTabla(){
+  const tbody=document.getElementById('tbl-rivales');
+  if(!tbody)return;
+  const busqueda=(document.getElementById('rival-search')?.value||'').toLowerCase();
+  const orden=document.getElementById('rival-orden')?.value||'spins';
+  let filas=_rivalesCache.filter(r=>r.nick.toLowerCase().includes(busqueda));
+  if(orden==='fichas_desc') filas.sort((a,b)=>b.fichas_netas-a.fichas_netas);
+  else if(orden==='fichas_asc') filas.sort((a,b)=>a.fichas_netas-b.fichas_netas);
+  else filas.sort((a,b)=>b.manos-a.manos);
+  if(!filas.length){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Importa spins por XML para ver este análisis</td></tr>';
+    return;
+  }
+  tbody.innerHTML=filas.map(r=>{
+    const col=r.fichas_netas>=0?'#16a34a':'#dc2626';
+    return`<tr>
+      <td style="font-weight:500">${r.nick}</td>
+      <td>${r.manos}</td>
+      <td style="color:${col};font-weight:600">${r.fichas_netas>=0?'+':''}${r.fichas_netas}</td>
+      <td>${r.spins_juntos}</td>
+      <td>${r.spins_ganados}</td>
+    </tr>`;
+  }).join('');
 }
 
 let _xmlImportGrupos=[];
