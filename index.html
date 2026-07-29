@@ -907,12 +907,20 @@ function setSesView(v){
 }
 
 // ── Helpers de agrupación ─────────────────────────────────────
+function fechaLocalStr(d){
+  // Devuelve YYYY-MM-DD en hora LOCAL, evitando el desfase de toISOString()
+  // (que convierte a UTC y puede devolver el día anterior/siguiente incorrecto).
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function lunesDe(fecha){
   const d=new Date(fecha+'T00:00:00');
   const dow=d.getDay(); // 0=dom
   const diff=(dow===0?-6:1-dow);
   const l=new Date(d); l.setDate(d.getDate()+diff);
-  return l.toISOString().split('T')[0];
+  return fechaLocalStr(l);
 }
 function getRbPct(semanaInicio,sala){
   if(sala!=='PartyPoker')return 0;
@@ -1785,9 +1793,17 @@ async function handleXmlImport(fileList){
 // Convierte "2026-07-24 01:30:00" en la fecha de "día de póker" correspondiente:
 // spins jugados antes de las 06:00 se imputan al día anterior (misma sesión nocturna).
 function diaPoker(startdate){
+  // BUG CORREGIDO: toISOString() convierte a UTC antes de extraer la fecha.
+  // En zonas horarias adelantadas a UTC (España UTC+2 en verano), un spin de
+  // madrugada (ej: 01:32 hora local) podía cruzar la medianoche una segunda vez
+  // al convertirse a UTC, quedando asignado al día anterior incorrecto.
+  // Se usan componentes de fecha LOCALES para evitar esa conversión.
   const d=new Date(startdate.replace(' ','T'));
   if(d.getHours()<6) d.setDate(d.getDate()-1);
-  return d.toISOString().slice(0,10);
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 
 // "00:06:39" → 399 (segundos)
@@ -1889,12 +1905,24 @@ function renderRivalesTabla(){
 }
 
 let _xmlImportGrupos=[];
+
+// Duración real de un grupo de spins = fin del ÚLTIMO spin − inicio del PRIMER spin.
+// NO es la suma de la duración de cada spin: al jugar varias mesas a la vez, los spins
+// se solapan en el tiempo real, y sumarlos uno a uno infla el total artificialmente.
+function duracionRealMinutos(spins){
+  const inicios=spins.map(s=>new Date(s.startdate.replace(' ','T')));
+  const finales=spins.map((s,i)=>new Date(inicios[i].getTime()+s.durationSec*1000));
+  const inicioReal=inicios.reduce((min,f)=>f<min?f:min,inicios[0]);
+  const finReal=finales.reduce((max,f)=>f>max?f:max,finales[0]);
+  return Math.round(Math.max(0,(finReal-inicioReal)/1000)/60);
+}
+
 function mostrarResumenImportacion(grupos,totalSpins){
   _xmlImportGrupos=grupos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const resumenHtml=_xmlImportGrupos.map((gr,idx)=>{
     const gan=gr.spins.reduce((a,s)=>a+s.win,0);
     const apost=gr.spins.length*gr.stake;
-    const mins=Math.round(gr.spins.reduce((a,s)=>a+s.durationSec,0)/60);
+    const mins=duracionRealMinutos(gr.spins);
     const itm=gr.spins.filter(s=>s.place===1).length;
     const itmPct=gr.spins.length?(itm/gr.spins.length*100).toFixed(0):0;
     const fechaFmt=new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
@@ -1941,10 +1969,10 @@ function aplicarImportacionXml(idx){
 
   const totalSpins=gr.spins.length;
   const totalGanado=gr.spins.reduce((a,s)=>a+s.win,0);
-  const totalSegundos=gr.spins.reduce((a,s)=>a+s.durationSec,0);
   const itmCount=gr.spins.filter(s=>s.place===1).length;
+  const totalMinutos=duracionRealMinutos(gr.spins);
 
-  // Hora de fin real = inicio del ÚLTIMO spin + su duración (no el inicio en sí).
+  // Hora de fin real = inicio del ÚLTIMO spin + su duración
   const finales=gr.spins.map(s=>{
     const inicio=new Date(s.startdate.replace(' ','T'));
     return new Date(inicio.getTime()+s.durationSec*1000);
@@ -1956,7 +1984,7 @@ function aplicarImportacionXml(idx){
   setSalaByName('PartyPoker');
   document.getElementById('ses-fecha').value=gr.fecha;
   document.getElementById('ses-hora-fin').value=horaFinReal.toTimeString().slice(0,5);
-  document.getElementById('ses-minutos').value=Math.round(totalSegundos/60);
+  document.getElementById('ses-minutos').value=totalMinutos;
   document.getElementById('ses-itm-count').value=itmCount;
   calcItmPct();
   sesionDateManuallyChanged=true; // ya viene fijada por el XML, no recalcular con la hora actual
@@ -2120,7 +2148,7 @@ function onHoraFinInput(){
   if(h<6){
     if(!editingSesionId&&!sesionDateManuallyChanged){
       const d=new Date();d.setDate(d.getDate()-1);
-      document.getElementById('ses-fecha').value=d.toISOString().split('T')[0];
+      document.getElementById('ses-fecha').value=fechaLocalStr(d);
     }
     const fechaVal=document.getElementById('ses-fecha').value;
     const d=new Date(fechaVal+'T00:00:00');
@@ -2578,7 +2606,7 @@ function fmtE(v){return parseFloat(v||0).toLocaleString('es-ES',{minimumFraction
 function fmtMin(m){const h=Math.floor(m/60),min=m%60;return h>0?`${h}h ${min}min`:`${min} min`}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0}
-function today(){return new Date().toISOString().split('T')[0]}
+function today(){return fechaLocalStr(new Date())}
 function calcHoraStr(hora_fin,minutos){
   if(!hora_fin||!minutos)return'—';
   const p=(hora_fin+'').split(':');const h=parseInt(p[0]),m=parseInt(p[1]);
