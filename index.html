@@ -284,6 +284,36 @@
       <div id="cajeros-list" class="cajero-row"></div>
       <div class="section-title">Conversión millas</div>
       <div class="stat-card"><div class="stat-label">Millas Winamax</div><div id="millas-info" style="font-size:13px;color:var(--muted);margin-top:4px">—</div></div>
+
+      <div class="section-title">Rakeback automático</div>
+      <p style="font-size:11px;color:var(--muted);padding:0 16px 8px">
+        Configura un pago automático cada vez que el rake acumulado de una sala cruce un umbral.
+        Se registra en Rakeback &amp; Promos y se suma al cajero solo, sin anotarlo a mano.
+      </p>
+      <div id="rakeback-config-list" style="padding:0 16px"></div>
+      <div style="padding:8px 16px"><button onclick="openRakebackConfigModal()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer">+ Añadir umbral</button></div>
+    </div>
+
+    <div id="modal-rakeback-config" class="modal-overlay" onclick="closeModalOnBg(event,'modal-rakeback-config')">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Umbral de rakeback</div>
+        <div class="field"><label>Sala</label>
+          <div class="pill-group" id="rbc-sala-pills">
+            <button class="pill" data-sala="Winamax" onclick="selectRbcSala(this)">Winamax</button>
+            <button class="pill" data-sala="PartyPoker" onclick="selectRbcSala(this)">PartyPoker</button>
+            <button class="pill" data-sala="PokerStars" onclick="selectRbcSala(this)">PokerStars</button>
+          </div>
+        </div>
+        <div class="field"><label>Umbral de rake acumulado (€)</label><input id="rbc-umbral" type="number" step="1" placeholder="100"></div>
+        <div class="field"><label>Pago cada vez que se cruza el umbral (€)</label><input id="rbc-pago" type="number" step="0.01" placeholder="40.00"></div>
+        <div class="field"><label>Rake acumulado actual (€) — de dónde empieza a contar</label><input id="rbc-acumulado" type="number" step="0.01" value="0"></div>
+        <div id="rbc-error" class="error-msg"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('modal-rakeback-config')">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveRakebackConfig()">Guardar</button>
+        </div>
+      </div>
     </div>
 
     <!-- FINANZAS -->
@@ -895,6 +925,95 @@ function renderCajeros(){
   document.getElementById('cajeros-list').innerHTML=renderCajerosHTML(true);
   const m=cajeros.find(c=>c.tipo==='millas');
   document.getElementById('millas-info').innerHTML=m?`<strong>${Math.round(m.saldo).toLocaleString('es')} millas</strong> = <strong style="color:var(--green)">${(m.saldo/69000*1000).toFixed(0)}€</strong> en torneos<br><span style="font-size:11px">69.000 millas = 1.000€</span>`:'Sin cajero de millas.';
+  cargarRakebackConfig();
+}
+
+// ── Configuración de rakeback automático ────────────────────────────────
+let _rakebackConfigCache=[];
+let selectedRbcSala=null;
+async function cargarRakebackConfig(){
+  try{
+    const {data}=await sb.from('spins_rakeback_umbral').select('*').order('sala');
+    _rakebackConfigCache=data||[];
+  }catch(e){ _rakebackConfigCache=[]; }
+  renderRakebackConfigList();
+}
+function renderRakebackConfigList(){
+  const el=document.getElementById('rakeback-config-list'); if(!el)return;
+  if(!_rakebackConfigCache.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px 0">Sin umbrales configurados aún.</div>';
+    return;
+  }
+  el.innerHTML=_rakebackConfigCache.map(cfg=>{
+    const pct=((cfg.rake_acumulado%cfg.umbral_rake)/cfg.umbral_rake*100).toFixed(0);
+    const color=SALA_COLOR[cfg.sala]||'#667085';
+    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;font-size:13px;color:${color}">${cfg.sala}</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="editRakebackConfig(${cfg.id})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">Editar</button>
+          <button onclick="toggleRakebackConfig(${cfg.id},${!cfg.activo})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;color:${cfg.activo?'var(--red,#dc2626)':'var(--green,#16a34a)'}">${cfg.activo?'Pausar':'Activar'}</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Cada ${cfg.umbral_rake}€ de rake → +${cfg.pago_cantidad}€ · ${cfg.activo?'Activo':'Pausado'}</div>
+      <div style="height:5px;background:var(--bg2);border-radius:3px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">${(cfg.rake_acumulado%cfg.umbral_rake).toFixed(2)}€ / ${cfg.umbral_rake}€ hacia el próximo pago</div>
+    </div>`;
+  }).join('');
+}
+function openRakebackConfigModal(){
+  document.getElementById('rbc-error').style.display='none';
+  document.getElementById('rbc-umbral').value='100';
+  document.getElementById('rbc-pago').value='';
+  document.getElementById('rbc-acumulado').value='0';
+  document.getElementById('rbc-edit-id')?.remove();
+  document.querySelectorAll('#rbc-sala-pills .pill').forEach(p=>p.classList.remove('selected'));
+  selectedRbcSala=null;
+  document.getElementById('modal-rakeback-config').classList.add('open');
+}
+function selectRbcSala(btn){
+  document.querySelectorAll('#rbc-sala-pills .pill').forEach(p=>p.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedRbcSala=btn.dataset.sala;
+}
+function editRakebackConfig(id){
+  const cfg=_rakebackConfigCache.find(c=>c.id===id); if(!cfg)return;
+  openRakebackConfigModal();
+  document.getElementById('rbc-umbral').value=cfg.umbral_rake;
+  document.getElementById('rbc-pago').value=cfg.pago_cantidad;
+  document.getElementById('rbc-acumulado').value=cfg.rake_acumulado;
+  document.querySelectorAll('#rbc-sala-pills .pill').forEach(p=>{
+    if(p.dataset.sala===cfg.sala){p.classList.add('selected');selectedRbcSala=cfg.sala;}
+  });
+  const hidden=document.createElement('input');
+  hidden.type='hidden'; hidden.id='rbc-edit-id'; hidden.value=id;
+  document.getElementById('modal-rakeback-config').querySelector('.modal-sheet').appendChild(hidden);
+}
+async function toggleRakebackConfig(id,activo){
+  try{
+    await sb.from('spins_rakeback_umbral').update({activo}).eq('id',id);
+    showToast(activo?'✓ Umbral activado':'✓ Umbral pausado');
+    await cargarRakebackConfig();
+  }catch(e){ showToast('Error: '+e.message); }
+}
+async function saveRakebackConfig(){
+  const errEl=document.getElementById('rbc-error'); errEl.style.display='none';
+  const umbral=parseFloat(document.getElementById('rbc-umbral').value);
+  const pago=parseFloat(document.getElementById('rbc-pago').value);
+  const acumulado=parseFloat(document.getElementById('rbc-acumulado').value)||0;
+  const editId=document.getElementById('rbc-edit-id')?.value;
+  if(!selectedRbcSala){errEl.textContent='Selecciona una sala.';errEl.style.display='block';return}
+  if(!umbral||!pago){errEl.textContent='Introduce umbral y pago.';errEl.style.display='block';return}
+  try{
+    if(editId){
+      await sb.from('spins_rakeback_umbral').update({umbral_rake:umbral,pago_cantidad:pago,rake_acumulado:acumulado}).eq('id',editId);
+    } else {
+      await sb.from('spins_rakeback_umbral').insert([{sala:selectedRbcSala,umbral_rake:umbral,pago_cantidad:pago,rake_acumulado:acumulado,activo:true}]);
+    }
+    closeModal('modal-rakeback-config');
+    showToast('✓ Umbral guardado');
+    await cargarRakebackConfig();
+  }catch(e){errEl.textContent='Error al guardar: '+(e.message||e);errEl.style.display='block'}
 }
 
 // ── Sesiones ──────────────────────────────────────────────────
@@ -2271,12 +2390,17 @@ async function saveSesion(){
           await sb.from('spins_cajeros').update({saldo:caj.saldo-oldBen+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
         }
       }
+      // Rakeback automático: solo se aplica el DELTA de rake (rake nuevo − rake antiguo),
+      // para no contar dos veces el rake ya procesado si se edita una sesión existente.
+      const rakeDelta=(rake||0)-(old?.rake||0);
+      if(rakeDelta!==0&&STANDARD_SALAS.includes(sala)) await procesarRakebackAutomatico(sala,rakeDelta);
       showToast('Sesión actualizada ✓');
     } else {
       await sb.from('spins_sesiones').insert([payload]);
       if(STANDARD_SALAS.includes(sala)){
         const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
         if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        if(rake) await procesarRakebackAutomatico(sala,rake);
       } else {
         showToast('Sesión guardada ✓ — Actualiza el cajero manualmente');
       }
@@ -2285,6 +2409,44 @@ async function saveSesion(){
     closeModal('modal-sesion');
     await loadAll();
   }catch(e){errEl.textContent='Error al guardar: '+(e.message||e);errEl.style.display='block'}
+}
+
+// ── Rakeback automático por umbral ──────────────────────────────────────
+// Cada sala/rakeback% tiene un contador de rake acumulado SIN reseteo temporal
+// (tabla spins_rakeback_umbral). Cada vez que el acumulado cruza un múltiplo del
+// umbral configurado (ej: 100€), se dispara un pago automático: se registra como
+// promo en spins_promociones Y se suma de verdad al cajero en euros — sin que el
+// usuario tenga que anotar el rakeback a mano en dos sitios distintos.
+// Si una sesión larga hace cruzar varios múltiplos de golpe, se generan varios pagos.
+async function procesarRakebackAutomatico(sala,rakeDelta){
+  try{
+    const {data:configs}=await sb.from('spins_rakeback_umbral').select('*').eq('sala',sala).eq('activo',true);
+    if(!configs||!configs.length)return; // esta sala no tiene rakeback automático configurado
+    for(const cfg of configs){
+      const nuevoAcumulado=(cfg.rake_acumulado||0)+rakeDelta;
+      const umbralAnterior=Math.floor((cfg.rake_acumulado||0)/cfg.umbral_rake);
+      const umbralNuevo=Math.floor(nuevoAcumulado/cfg.umbral_rake);
+      const pagosNuevos=umbralNuevo-umbralAnterior; // nº de veces que se cruza el umbral con esta sesión
+      await sb.from('spins_rakeback_umbral').update({rake_acumulado:Math.max(0,nuevoAcumulado)}).eq('id',cfg.id);
+      if(pagosNuevos>0){
+        const pagoTotal=pagosNuevos*cfg.pago_cantidad;
+        const fecha=today();
+        await sb.from('spins_promociones').insert([{
+          fecha, sala, tipo:'rakeback',
+          cantidad:pagoTotal,
+          descripcion:`Rakeback automático · ${pagosNuevos} pago${pagosNuevos>1?'s':''} de ${cfg.pago_cantidad}€ (umbral ${cfg.umbral_rake}€ de rake)`
+        }]);
+        const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
+        if(caj) await sb.from('spins_cajeros').update({saldo:caj.saldo+pagoTotal,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        showToast(`🎉 Rakeback automático: +${pagoTotal.toFixed(2)}€ (${sala})`);
+      } else if(pagosNuevos<0){
+        // rake_delta negativo (se redujo el rake al editar una sesión) y no cruza umbral hacia abajo: no se revierte ningún pago ya hecho.
+      }
+    }
+  }catch(e){
+    console.error('No se pudo procesar el rakeback automático:',e);
+    showToast('⚠ Rake registrado, pero el rakeback automático falló: '+(e.message||'¿existe la tabla spins_rakeback_umbral?'));
+  }
 }
 
 // ── Detalle ───────────────────────────────────────────────────
