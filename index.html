@@ -655,6 +655,9 @@
       <div class="calc-display">
         <div><div class="calc-label">Rakeback (40%)</div><div class="calc-value" id="promo-rb-calc" style="color:var(--green)">—</div></div>
       </div>
+      <div id="promo-rb-auto-warning" style="display:none;background:#FBF3DC;border:1px solid #B8960C;border-radius:8px;padding:8px 10px;font-size:11px;color:#8a6d0a;margin-top:8px">
+        ⚠ Esta sala ya tiene rakeback automático por umbral configurado en Cajeros. Si usas ambos sistemas para el mismo rake, se contaría dos veces.
+      </div>
     </div>
     <div class="field"><label id="promo-cant-label">Cantidad (€)</label><input id="promo-cantidad" type="number" step="0.01" placeholder="0.00"></div>
     <div class="field-row">
@@ -1496,9 +1499,29 @@ function renderPromos(){
     const cantStr=p.tipo==='millas'?Math.round(p.cantidad).toLocaleString('es')+' mill.':'+'+fmtE(p.cantidad);
     return`<div class="promo-row">
       <div><span class="promo-badge" style="background:${color}20;color:${color}">${p.sala} · ${p.tipo}</span><div class="promo-meta">${f}${p.descripcion?' · '+p.descripcion:''}</div></div>
-      <div class="promo-cantidad">${cantStr}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="promo-cantidad">${cantStr}</div>
+        <button onclick="deletePromo(${p.id})" style="background:none;border:1px solid var(--border);color:var(--red,#dc2626);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
+      </div>
     </div>`;
   }).join('');
+}
+// Borra una promo y revierte su efecto en el cajero correspondiente
+// (mismo criterio usado al crearla en savePromo).
+async function deletePromo(id){
+  const p=allPromociones.find(x=>x.id===id); if(!p)return;
+  try{
+    if(p.tipo==='millas'){
+      const caj=cajeros.find(c=>c.sala==='Winamax'&&c.tipo==='millas');
+      if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo-p.cantidad,updated_at:new Date().toISOString()}).eq('id',caj.id);
+    } else {
+      const caj=cajeros.find(c=>c.sala===p.sala&&c.tipo==='real');
+      if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo-p.cantidad,updated_at:new Date().toISOString()}).eq('id',caj.id);
+    }
+    await sb.from('spins_promociones').delete().eq('id',id);
+    showToast('✓ Promo eliminada y cajero revertido');
+    await loadAll();
+  }catch(e){ showToast('Error al eliminar: '+e.message); }
 }
 
 // ── Análisis ──────────────────────────────────────────────────
@@ -2709,12 +2732,22 @@ function openPromoModal(){
 function selectPromoSala(btn){
   document.querySelectorAll('#promo-sala-pills .pill').forEach(p=>p.classList.remove('selected'));
   btn.classList.add('selected'); selectedPromoSala=btn.dataset.sala;
+  updatePromoRbAutoWarning();
 }
 function onPromoTipoChange(){
   const tipo=document.getElementById('promo-tipo').value;
   document.getElementById('promo-rake-section').style.display=tipo==='rakeback'?'block':'none';
   document.getElementById('promo-cant-label').textContent=tipo==='millas'?'Millas ganadas':'Cantidad (€)';
   document.getElementById('promo-cantidad').step=tipo==='millas'?'1':'0.01';
+  updatePromoRbAutoWarning();
+}
+function updatePromoRbAutoWarning(){
+  const tipo=document.getElementById('promo-tipo')?.value;
+  const warn=document.getElementById('promo-rb-auto-warning');
+  if(!warn)return;
+  const tieneAutomatico=tipo==='rakeback'&&selectedPromoSala&&
+    (_rakebackConfigCache||[]).some(c=>c.sala===selectedPromoSala&&c.activo);
+  warn.style.display=tieneAutomatico?'block':'none';
 }
 function calcPromoRakeback(){
   const rake=parseFloat(document.getElementById('promo-rake-gen').value)||0;
@@ -2736,6 +2769,13 @@ async function savePromo(){
     if(tipo==='millas'){
       const caj=cajeros.find(c=>c.sala==='Winamax'&&c.tipo==='millas');
       if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+cantidad,updated_at:new Date().toISOString()}).eq('id',caj.id);
+    } else {
+      // BUG CORREGIDO: 'rakeback' (manual) y 'carrera' son premios en euros reales,
+      // pero antes solo 'millas' actualizaba el cajero — el resto se guardaba como
+      // registro histórico sin sumarse nunca al saldo real de la sala.
+      const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
+      if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+cantidad,updated_at:new Date().toISOString()}).eq('id',caj.id);
+      else console.warn('No se encontró cajero real para',sala,'— la promo se guardó pero no se sumó a ningún saldo');
     }
     closeModal('modal-promo'); showToast('Promo guardada ✓'); await loadAll();
   }catch(e){errEl.textContent='Error al guardar.';errEl.style.display='block'}
