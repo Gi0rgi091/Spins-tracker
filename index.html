@@ -954,8 +954,8 @@ function renderRakebackConfigList(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-weight:600;font-size:13px;color:${color}">${cfg.sala}</span>
         <div style="display:flex;gap:6px">
-          <button onclick="editRakebackConfig(${cfg.id})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">Editar</button>
-          <button onclick="toggleRakebackConfig(${cfg.id},${!cfg.activo})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;color:${cfg.activo?'var(--red,#dc2626)':'var(--green,#16a34a)'}">${cfg.activo?'Pausar':'Activar'}</button>
+          <button onclick="editRakebackConfig('${cfg.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">Editar</button>
+          <button onclick="toggleRakebackConfig('${cfg.id}',${!cfg.activo})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;color:${cfg.activo?'var(--red,#dc2626)':'var(--green,#16a34a)'}">${cfg.activo?'Pausar':'Activar'}</button>
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted)">Cada ${cfg.umbral_rake}€ de rake → +${cfg.pago_cantidad}€ · ${cfg.activo?'Activo':'Pausado'}</div>
@@ -1501,7 +1501,7 @@ function renderPromos(){
       <div><span class="promo-badge" style="background:${color}20;color:${color}">${p.sala} · ${p.tipo}</span><div class="promo-meta">${f}${p.descripcion?' · '+p.descripcion:''}</div></div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="promo-cantidad">${cantStr}</div>
-        <button onclick="deletePromo(${p.id})" style="background:none;border:1px solid var(--border);color:var(--red,#dc2626);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
+        <button onclick="deletePromo('${p.id}')" style="background:none;border:1px solid var(--border);color:var(--red,#dc2626);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
       </div>
     </div>`;
   }).join('');
