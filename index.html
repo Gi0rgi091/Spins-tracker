@@ -980,7 +980,7 @@ function selectRbcSala(btn){
   selectedRbcSala=btn.dataset.sala;
 }
 function editRakebackConfig(id){
-  const cfg=_rakebackConfigCache.find(c=>c.id===id); if(!cfg)return;
+  const cfg=_rakebackConfigCache.find(c=>String(c.id)===String(id)); if(!cfg)return;
   openRakebackConfigModal();
   document.getElementById('rbc-umbral').value=cfg.umbral_rake;
   document.getElementById('rbc-pago').value=cfg.pago_cantidad;
@@ -1509,7 +1509,10 @@ function renderPromos(){
 // Borra una promo y revierte su efecto en el cajero correspondiente
 // (mismo criterio usado al crearla en savePromo).
 async function deletePromo(id){
-  const p=allPromociones.find(x=>x.id===id); if(!p)return;
+  // BUG CORREGIDO: comparación estricta (===) entre id numérico (del onclick del HTML)
+  // y el id real en allPromociones, que puede venir como string desde Supabase
+  // (columnas bigint). Se compara como String() para evitar el fallo silencioso.
+  const p=allPromociones.find(x=>String(x.id)===String(id)); if(!p)return;
   try{
     if(p.tipo==='millas'){
       const caj=cajeros.find(c=>c.sala==='Winamax'&&c.tipo==='millas');
@@ -2474,7 +2477,7 @@ async function procesarRakebackAutomatico(sala,rakeDelta){
 
 // ── Detalle ───────────────────────────────────────────────────
 function openDetalle(id){
-  const s=allSesiones.find(x=>x.id===id); if(!s)return;
+  const s=allSesiones.find(x=>String(x.id)===String(id)); if(!s)return;
   const ben=s.ganado-s.total_apostado;
   const color=SALA_COLOR[s.sala]||'#667085';
   const horaIni=calcHoraStr(s.hora_fin,s.minutos_jugados);
