@@ -239,22 +239,6 @@
         <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value neutral" id="ds-ses">—</div></div>
         <div class="stat-card"><div class="stat-label">Rake pagado</div><div class="stat-value neutral" id="ds-rake">—</div><div class="stat-sub" id="ds-rb-est"></div></div>
       </div>
-      <div id="party-rb-card" style="display:none;margin-top:10px">
-        <div class="section-title" style="margin-top:0">Rakeback PartyPoker</div>
-        <div class="stat-card" style="border-left:3px solid var(--party)">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-            <div style="flex:1">
-              <div class="stat-label">Generado este mes (40% del rake Party)</div>
-              <div id="rb-generado" style="font-size:20px;font-weight:600;color:var(--green);margin:4px 0">—</div>
-              <div id="rb-detalle" style="font-size:12px;color:var(--muted)">—</div>
-            </div>
-            <div id="rb-pendiente-wrap" style="display:none;text-align:right;flex-shrink:0">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Sin registrar</div>
-              <div id="rb-pendiente" style="font-size:16px;font-weight:600;color:var(--party)">—</div>
-            </div>
-          </div>
-        </div>
-      </div>
       <div class="section-title">Cajeros</div>
       <div id="dash-cajeros" class="cajero-row"></div>
       <div class="section-title">Últimas sesiones</div>
@@ -858,15 +842,6 @@ function renderDashboard(){
   const totalSpinsEV=sesConEV.reduce((a,s)=>a+s.num_spins,0);
   const evMedio=totalSpinsEV>0?totalFichas/totalSpinsEV:null;
 
-  // Party rakeback: calculado automáticamente desde sesiones
-  const partyRake=ses.filter(s=>s.sala==='PartyPoker').reduce((a,s)=>a+(s.rake||0),0);
-  const rbGenerado=partyRake*0.40;
-  const rbRegistrado=allPromociones.filter(p=>{
-    const d=new Date(p.fecha+'T00:00:00');
-    return d.getMonth()===currentMonth&&d.getFullYear()===currentYear&&p.sala==='PartyPoker'&&p.tipo==='rakeback';
-  }).reduce((a,p)=>a+p.cantidad,0);
-  const rbPendiente=Math.max(0,rbGenerado-rbRegistrado);
-
   function vc(v){return v>0?'pos':v<0?'neg':'neutral'}
   function fe(v,d=2){return(v>=0?'+':'')+v.toFixed(d)+'€'}
   function set(id,val,cls){const el=document.getElementById(id);if(el){el.textContent=val;if(cls)el.className='stat-value '+cls}}
@@ -885,23 +860,6 @@ function renderDashboard(){
   set('ds-ses',ses.length,'neutral');
   set('ds-rake',fmtE(rake),'neutral');
   document.getElementById('ds-rb-est').textContent='';
-
-  // Party rakeback card
-  const rbCard=document.getElementById('party-rb-card');
-  if(partyRake>0){
-    rbCard.style.display='block';
-    document.getElementById('rb-generado').textContent='+'+rbGenerado.toFixed(2)+'€';
-    document.getElementById('rb-detalle').textContent='Rake Party: '+partyRake.toFixed(2)+'€ · Ya registrado: '+rbRegistrado.toFixed(2)+'€';
-    const pw=document.getElementById('rb-pendiente-wrap');
-    if(rbPendiente>=0.01){
-      pw.style.display='block';
-      document.getElementById('rb-pendiente').textContent='+'+rbPendiente.toFixed(2)+'€';
-    } else {
-      pw.style.display='none';
-    }
-  } else {
-    rbCard.style.display='none';
-  }
 
   document.getElementById('dash-cajeros').innerHTML=renderCajerosHTML(false);
   const recent=allSesiones.slice(0,5);
@@ -2132,6 +2090,9 @@ function aplicarImportacionXml(idx){
   document.getElementById('ses-minutos').value=totalMinutos;
   document.getElementById('ses-itm-count').value=itmCount;
   calcItmPct();
+  // Rellenar hora-fin/minutos con .value= NO dispara el oninput que normalmente
+  // calcula la hora de inicio mostrada en pantalla — hay que llamarlo a mano.
+  calcHoraInicio();
   sesionDateManuallyChanged=true; // ya viene fijada por el XML, no recalcular con la hora actual
 
   setNivelStakeByVal(1,gr.stake);
@@ -2412,8 +2373,12 @@ async function saveSesion(){
         if(old&&old.sala!==sala&&oldCaj){
           await sb.from('spins_cajeros').update({saldo:oldCaj.saldo-oldBen,updated_at:new Date().toISOString()}).eq('id',oldCaj.id);
           if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+          else console.warn('[saveSesion] No se encontró cajero real para',sala,'— saldo NO actualizado. Cajeros disponibles:',cajeros.map(c=>c.sala+'/'+c.tipo));
         } else if(caj){
           await sb.from('spins_cajeros').update({saldo:caj.saldo-oldBen+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        } else {
+          console.warn('[saveSesion] No se encontró cajero real para',sala,'— saldo NO actualizado. Cajeros disponibles:',cajeros.map(c=>c.sala+'/'+c.tipo));
+          showToast('⚠ Sesión guardada, pero no se encontró el cajero de '+sala+' — revisa Cajeros');
         }
       }
       // Rakeback automático: solo se aplica el DELTA de rake (rake nuevo − rake antiguo),
@@ -2425,7 +2390,14 @@ async function saveSesion(){
       await sb.from('spins_sesiones').insert([payload]);
       if(STANDARD_SALAS.includes(sala)){
         const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
-        if(caj)await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        if(caj){
+          await sb.from('spins_cajeros').update({saldo:caj.saldo+newBen,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        } else {
+          // Antes esto fallaba en silencio (if(caj) sin else) — es el motivo exacto
+          // por el que el saldo del XML importado no se sumaba sin ningún aviso visible.
+          console.warn('[saveSesion] No se encontró cajero real para',sala,'— saldo NO actualizado. Cajeros disponibles:',cajeros.map(c=>c.sala+'/'+c.tipo));
+          showToast('⚠ Sesión guardada, pero no se encontró el cajero de '+sala+' — revisa Cajeros');
+        }
         if(rake) await procesarRakebackAutomatico(sala,rake);
       } else {
         showToast('Sesión guardada ✓ — Actualiza el cajero manualmente');
