@@ -2434,8 +2434,14 @@ async function procesarRakebackAutomatico(sala,rakeDelta){
           cantidad:pagoTotal,
           descripcion:`Rakeback automático · ${pagosNuevos} pago${pagosNuevos>1?'s':''} de ${cfg.pago_cantidad}€ (umbral ${cfg.umbral_rake}€ de rake)`
         }]);
-        const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
-        if(caj) await sb.from('spins_cajeros').update({saldo:caj.saldo+pagoTotal,updated_at:new Date().toISOString()}).eq('id',caj.id);
+        // BUG CORREGIDO: antes se usaba cajeros.find(...) (array en memoria, desactualizado)
+        // para calcular el nuevo saldo. Si saveSesion() acababa de sumar la ganancia/pérdida
+        // de la sesión justo antes, esa escritura se perdía: este código escribía
+        // saldoViejo+pagoTotal en vez de (saldoViejo+ganancia)+pagoTotal — pisando la ganancia.
+        // Se lee el saldo FRESCO de Supabase justo antes de escribir para evitar la condición de carrera.
+        const {data:cajRows}=await sb.from('spins_cajeros').select('id,saldo').eq('sala',sala).eq('tipo','real').limit(1);
+        const cajFresco=cajRows&&cajRows[0];
+        if(cajFresco) await sb.from('spins_cajeros').update({saldo:cajFresco.saldo+pagoTotal,updated_at:new Date().toISOString()}).eq('id',cajFresco.id);
         showToast(`🎉 Rakeback automático: +${pagoTotal.toFixed(2)}€ (${sala})`);
       } else if(pagosNuevos<0){
         // rake_delta negativo (se redujo el rake al editar una sesión) y no cruza umbral hacia abajo: no se revierte ningún pago ya hecho.
