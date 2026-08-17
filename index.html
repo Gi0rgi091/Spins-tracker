@@ -233,12 +233,30 @@
       <div class="section-title">Resumen del mes</div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">Beneficio</div><div class="stat-value neutral" id="ds-ben">—</div></div>
-        <div class="stat-card"><div class="stat-label">EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div><div class="stat-sub" id="ds-ev-sub"></div></div>
+        <div class="stat-card"><div class="stat-label">Chips EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div><div class="stat-sub" id="ds-ev-sub"></div></div>
         <div class="stat-card"><div class="stat-label">EV Euros</div><div class="stat-value neutral" id="ds-eveur">—</div></div>
         <div class="stat-card"><div class="stat-label">Horas jugadas</div><div class="stat-value neutral" id="ds-horas">—</div></div>
         <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value neutral" id="ds-ses">—</div></div>
         <div class="stat-card"><div class="stat-label">Rake pagado</div><div class="stat-value neutral" id="ds-rake">—</div><div class="stat-sub" id="ds-rb-est"></div></div>
+        <div class="stat-card"><div class="stat-label">Total spins jugados</div><div class="stat-value neutral" id="ds-total-spins">—</div></div>
+        <div class="stat-card"><div class="stat-label">Media tiempo/sesión</div><div class="stat-value neutral" id="ds-media-tiempo">—</div></div>
+        <div class="stat-card"><div class="stat-label">Media spins/sesión</div><div class="stat-value neutral" id="ds-media-spins">—</div></div>
       </div>
+
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>EV + Rakeback estimado</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="pill-group" id="ds-rb-pct-pills" style="display:flex;gap:4px">
+            <button class="pill" data-pct="40" onclick="setDsRbPct(this)">40%</button>
+            <button class="pill selected" data-pct="45" onclick="setDsRbPct(this)">45%</button>
+            <button class="pill" data-pct="47" onclick="setDsRbPct(this)">47%</button>
+          </div>
+          <input type="number" id="ds-rb-pct-custom" placeholder="%" step="1" min="0" max="100"
+            style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;text-align:center"
+            oninput="setDsRbPctCustom(this.value)">
+        </div>
+      </div>
+      <div id="ds-ev-rb-list"></div>
       <div class="section-title">Cajeros</div>
       <div id="dash-cajeros" class="cajero-row"></div>
       <div class="section-title">Últimas sesiones</div>
@@ -318,10 +336,46 @@
         <button class="filter-pill" data-sala="Winamax" onclick="setAnalisisFilter(this)">Winamax</button>
         <button class="filter-pill" data-sala="PokerStars" onclick="setAnalisisFilter(this)">Stars</button>
       </div>
-      <div class="chart-card"><div class="chart-title">Chips EV media · Franja horaria</div><div class="chart-wrap"><canvas id="chart-hora"></canvas></div></div>
-      <div class="chart-card"><div class="chart-title">Chips EV media · Día de la semana</div><div class="chart-wrap"><canvas id="chart-dia"></canvas></div></div>
-      <div class="chart-card"><div class="chart-title">Chips EV media · Período del mes</div><div class="chart-wrap"><canvas id="chart-periodo"></canvas></div></div>
-      <div class="chart-card"><div class="chart-title">Beneficio acumulado · Mes actual</div><div class="chart-wrap"><canvas id="chart-acum"></canvas></div></div>
+      <div class="chart-card">
+        <div class="chart-title">Chips EV media · Franja horaria</div>
+        <div class="chart-wrap"><canvas id="chart-hora"></canvas></div>
+        <div class="tabla-scroll"><table class="tabla-resumen" style="margin-top:10px;font-size:11px">
+          <thead><tr>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('hora','key')">Hora ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('hora','n')">Sesiones ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('hora','val')">Chips EV ⇅</th>
+          </tr></thead>
+          <tbody id="tbl-hora"></tbody>
+        </table></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Chips EV media · Día de la semana</div>
+        <div class="chart-wrap"><canvas id="chart-dia"></canvas></div>
+        <div class="tabla-scroll"><table class="tabla-resumen" style="margin-top:10px;font-size:11px">
+          <thead><tr>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('dia','key')">Día ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('dia','n')">Sesiones ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('dia','val')">Chips EV ⇅</th>
+          </tr></thead>
+          <tbody id="tbl-dia"></tbody>
+        </table></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Chips EV media · Período del mes</div>
+        <div class="chart-wrap"><canvas id="chart-periodo"></canvas></div>
+        <div class="tabla-scroll"><table class="tabla-resumen" style="margin-top:10px;font-size:11px">
+          <thead><tr>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('periodo','key')">Período ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('periodo','n')">Sesiones ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('periodo','val')">Chips EV ⇅</th>
+          </tr></thead>
+          <tbody id="tbl-periodo"></tbody>
+        </table></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Beneficio acumulado · Mes actual</div>
+        <div class="chart-wrap"><canvas id="chart-acum"></canvas></div>
+      </div>
 
       <div class="chart-card">
         <div class="chart-title">Análisis de rivales <span style="font-weight:400;color:var(--muted);font-size:11px">(desde XML importados)</span></div>
@@ -829,6 +883,22 @@ function onFabClick(){
 }
 
 // ── Dashboard ─────────────────────────────────────────────────
+let dsRbPct=45; // % de rakeback seleccionado en el dashboard (independiente de la config de Cajeros)
+function setDsRbPct(btn){
+  document.querySelectorAll('#ds-rb-pct-pills .pill').forEach(p=>p.classList.remove('selected'));
+  btn.classList.add('selected');
+  dsRbPct=parseFloat(btn.dataset.pct);
+  document.getElementById('ds-rb-pct-custom').value='';
+  renderDashboard();
+}
+function setDsRbPctCustom(val){
+  const n=parseFloat(val);
+  if(isNaN(n))return;
+  document.querySelectorAll('#ds-rb-pct-pills .pill').forEach(p=>p.classList.remove('selected'));
+  dsRbPct=n;
+  renderDashboard();
+}
+
 function renderDashboard(){
   const ses=getMonthSesiones();
   const ben=ses.reduce((a,s)=>a+(s.ganado-s.total_apostado),0);
@@ -836,18 +906,22 @@ function renderDashboard(){
   const hrs=ses.reduce((a,s)=>a+s.minutos_jugados,0)/60;
   const rake=ses.reduce((a,s)=>a+(s.rake||0),0);
 
-  // EV/spin: media de chips EV por spin (solo sesiones con EV registrado)
+  // Chips EV/spin: media de chips EV por spin (solo sesiones con EV registrado)
   const sesConEV=ses.filter(s=>s.chips_ev!=null&&s.num_spins>0);
   const totalFichas=sesConEV.reduce((a,s)=>a+(s.chips_ev*s.num_spins),0);
   const totalSpinsEV=sesConEV.reduce((a,s)=>a+s.num_spins,0);
   const evMedio=totalSpinsEV>0?totalFichas/totalSpinsEV:null;
+
+  // Total spins jugados y medias por sesión (sobre todas las sesiones del mes, no solo las que tienen EV)
+  const totalSpins=ses.reduce((a,s)=>a+(s.num_spins||0),0);
+  const mediaTiempoMin=ses.length?ses.reduce((a,s)=>a+(s.minutos_jugados||0),0)/ses.length:0;
+  const mediaSpins=ses.length?totalSpins/ses.length:0;
 
   function vc(v){return v>0?'pos':v<0?'neg':'neutral'}
   function fe(v,d=2){return(v>=0?'+':'')+v.toFixed(d)+'€'}
   function set(id,val,cls){const el=document.getElementById(id);if(el){el.textContent=val;if(cls)el.className='stat-value '+cls}}
 
   set('ds-ben',fe(ben),vc(ben));
-  // EV/spin
   if(evMedio!==null){
     set('ds-ev',(evMedio>=0?'+':'')+evMedio.toFixed(3),vc(evMedio));
     document.getElementById('ds-ev-sub').textContent='fichas/spin · '+sesConEV.length+' ses.';
@@ -860,6 +934,44 @@ function renderDashboard(){
   set('ds-ses',ses.length,'neutral');
   set('ds-rake',fmtE(rake),'neutral');
   document.getElementById('ds-rb-est').textContent='';
+  set('ds-total-spins',totalSpins.toLocaleString('es'),'neutral');
+  set('ds-media-tiempo',mediaTiempoMin>0?(mediaTiempoMin/60).toFixed(1)+'h':'—','neutral');
+  set('ds-media-spins',mediaSpins>0?mediaSpins.toFixed(0):'—','neutral');
+
+  // EV + Rakeback por sala, con el % seleccionado arriba
+  const evRbEl=document.getElementById('ds-ev-rb-list');
+  if(evRbEl){
+    const porSala={};
+    ses.forEach(s=>{
+      if(!porSala[s.sala])porSala[s.sala]={evEur:0,rake:0};
+      porSala[s.sala].evEur+=(s.ev_euros||0);
+      porSala[s.sala].rake+=(s.rake||0);
+    });
+    const salas=Object.keys(porSala).filter(s=>porSala[s].evEur!==0||porSala[s].rake!==0);
+    if(!salas.length){
+      evRbEl.innerHTML='<div class="empty-state" style="padding:16px"><p>Sin datos este mes.</p></div>';
+    } else {
+      evRbEl.innerHTML=salas.map(sala=>{
+        const {evEur:evS,rake:rakeS}=porSala[sala];
+        const rbEstimado=rakeS*(dsRbPct/100);
+        const total=evS+rbEstimado;
+        const color=SALA_COLOR[sala]||'#667085';
+        return`<div class="stat-card" style="border-left:3px solid ${color};margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600;font-size:13px;color:${color}">${sala}</span>
+            <span style="font-size:11px;color:var(--muted)">Rake: ${rakeS.toFixed(2)}€</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
+            <div><span style="font-size:11px;color:var(--muted)">EV €: </span><span class="${vc(evS)}" style="font-weight:600">${fe(evS)}</span></div>
+            <div><span style="font-size:11px;color:var(--muted)">RB (${dsRbPct}%): </span><span style="font-weight:600;color:var(--green)">+${rbEstimado.toFixed(2)}€</span></div>
+          </div>
+          <div style="text-align:right;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
+            <span style="font-size:11px;color:var(--muted)">Total EV+RB: </span><span class="${vc(total)}" style="font-weight:700;font-size:15px">${fe(total)}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
 
   document.getElementById('dash-cajeros').innerHTML=renderCajerosHTML(false);
   const recent=allSesiones.slice(0,5);
@@ -1505,6 +1617,11 @@ function renderAnalisis(){
   buildAcum();
   if(!_rivalesCache.length) cargarRivales(); else renderRivalesTabla();
 }
+// Caché de los datos agrupados de cada gráfico, para alimentar las tablas ordenables
+// sin recalcular la agrupación por separado.
+let _analisisTablaData={hora:[],dia:[],periodo:[]};
+let _analisisSortState={hora:{col:'key',asc:true},dia:{col:'key',asc:true},periodo:{col:'key',asc:true}};
+
 function buildHora(ses){
   const by={};
   ses.forEach(s=>{const h=horaIniNum(s.hora_fin,s.minutos_jugados);if(!by[h])by[h]=[];by[h].push(s.chips_ev)});
@@ -1512,12 +1629,17 @@ function buildHora(ses){
   const data=Array.from({length:24},(_,i)=>by[i]?avg(by[i]):null);
   const counts=Array.from({length:24},(_,i)=>by[i]?by[i].length:0);
   buildBar('chart-hora',labels,data,counts);
+  _analisisTablaData.hora=labels.map((key,i)=>({key,n:counts[i],val:data[i]})).filter(r=>r.n>0);
+  renderAnalisisTabla('hora');
 }
 function buildDia(ses){
   const dias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],by={};
   ses.forEach(s=>{const dow=(new Date(s.fecha+'T00:00:00').getDay()+6)%7;if(!by[dow])by[dow]=[];by[dow].push(s.chips_ev)});
   const counts=dias.map((_,i)=>by[i]?by[i].length:0);
-  buildBar('chart-dia',dias,dias.map((_,i)=>by[i]?avg(by[i]):null),counts);
+  const data=dias.map((_,i)=>by[i]?avg(by[i]):null);
+  buildBar('chart-dia',dias,data,counts);
+  _analisisTablaData.dia=dias.map((key,i)=>({key,n:counts[i],val:data[i]})).filter(r=>r.n>0);
+  renderAnalisisTabla('dia');
 }
 function buildPeriodo(ses){
   // 4 tramos de máx. 7-8 días cada uno (en vez de 3 tramos de ~10 días),
@@ -1529,18 +1651,59 @@ function buildPeriodo(ses){
     by[idx].push(s.chips_ev);
   });
   const counts=[0,1,2,3].map(i=>by[i].length);
-  buildBar('chart-periodo',per,[0,1,2,3].map(i=>by[i].length?avg(by[i]):null),counts);
+  const data=[0,1,2,3].map(i=>by[i].length?avg(by[i]):null);
+  buildBar('chart-periodo',per,data,counts);
+  _analisisTablaData.periodo=per.map((key,i)=>({key,n:counts[i],val:data[i]})).filter(r=>r.n>0);
+  renderAnalisisTabla('periodo');
+}
+
+// Ordena y renderiza la tabla de un gráfico (hora/dia/periodo).
+// col: 'key' (hora/día/período), 'n' (nº sesiones), o 'val' (chips EV medio).
+function sortAnalisisTabla(chartId,col){
+  const st=_analisisSortState[chartId];
+  if(st.col===col) st.asc=!st.asc; else { st.col=col; st.asc=true; }
+  renderAnalisisTabla(chartId);
+}
+function renderAnalisisTabla(chartId){
+  const tbody=document.getElementById('tbl-'+chartId);
+  if(!tbody)return;
+  const rows=[..._analisisTablaData[chartId]];
+  const {col,asc}=_analisisSortState[chartId];
+  rows.sort((a,b)=>{
+    let av=a[col],bv=b[col];
+    if(col==='key'){ av=String(av); bv=String(bv); return asc?av.localeCompare(bv,'es',{numeric:true}):bv.localeCompare(av,'es',{numeric:true}); }
+    av=av??-Infinity; bv=bv??-Infinity;
+    return asc?av-bv:bv-av;
+  });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:10px">Sin datos suficientes</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map(r=>{
+    const cls=r.val==null?'':r.val>=0?'up':'down';
+    return`<tr><td>${r.key}</td><td>${r.n}</td><td class="${cls}">${r.val!=null?(r.val>=0?'+':'')+r.val.toFixed(1):'—'}</td></tr>`;
+  }).join('');
 }
 function buildAcum(){
   const ses=getMonthSesiones().sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora_fin.localeCompare(b.hora_fin));
   if(!ses.length)return;
-  let ac=0; const labels=[],data=[];
-  ses.forEach(s=>{ac+=(s.ganado-s.total_apostado);const d=new Date(s.fecha+'T00:00:00');labels.push(d.getDate()+'/'+(d.getMonth()+1));data.push(parseFloat(ac.toFixed(2)))});
+  let ac=0,acEv=0; const labels=[],data=[],dataEv=[];
+  ses.forEach(s=>{
+    ac+=(s.ganado-s.total_apostado);
+    acEv+=(s.ev_euros||0);
+    const d=new Date(s.fecha+'T00:00:00');
+    labels.push(d.getDate()+'/'+(d.getMonth()+1));
+    data.push(parseFloat(ac.toFixed(2)));
+    dataEv.push(parseFloat(acEv.toFixed(2)));
+  });
   if(charts['chart-acum'])charts['chart-acum'].destroy();
   const ctx=document.getElementById('chart-acum')?.getContext('2d');
   if(!ctx)return;
   const col=ac>=0?'#027A48':'#B42318';
-  charts['chart-acum']=new Chart(ctx,{type:'line',data:{labels,datasets:[{data,borderColor:col,backgroundColor:col+'20',fill:true,tension:.3,pointRadius:3,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxTicksLimit:8},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>v+'€'},grid:{color:'#E4E7EC'}}}}});
+  charts['chart-acum']=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'Beneficio real',data,borderColor:col,backgroundColor:col+'20',fill:true,tension:.3,pointRadius:3,borderWidth:2},
+    {label:'€ EV (esperado)',data:dataEv,borderColor:'#8b72f0',backgroundColor:'transparent',fill:false,tension:.3,pointRadius:2,borderWidth:2,borderDash:[5,4]},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{ticks:{font:{size:10},maxTicksLimit:8},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>v+'€'},grid:{color:'#E4E7EC'}}}}});
 }
 function buildBar(id,labels,data,counts){
   if(charts[id])charts[id].destroy();
