@@ -233,7 +233,7 @@
       <div class="section-title">Resumen del mes</div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">Beneficio</div><div class="stat-value neutral" id="ds-ben">—</div></div>
-        <div class="stat-card"><div class="stat-label">Chips EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div><div class="stat-sub" id="ds-ev-sub"></div></div>
+        <div class="stat-card"><div class="stat-label">Chips EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div></div>
         <div class="stat-card"><div class="stat-label">EV Euros</div><div class="stat-value neutral" id="ds-eveur">—</div></div>
         <div class="stat-card"><div class="stat-label">Horas jugadas</div><div class="stat-value neutral" id="ds-horas">—</div></div>
         <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value neutral" id="ds-ses">—</div></div>
@@ -256,6 +256,18 @@
       <div id="dash-cajeros" class="cajero-row"></div>
       <div class="section-title">Últimas sesiones</div>
       <div id="dash-recent"></div>
+
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Top rachas de sesiones con EV</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:11px;color:var(--muted)">≥</span>
+          <input type="number" id="ds-racha-umbral" value="23" step="1"
+            style="width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;text-align:center"
+            oninput="renderRachas()">
+          <span style="font-size:11px;color:var(--muted)">chips EV</span>
+        </div>
+      </div>
+      <div id="ds-rachas-list"></div>
     </div>
 
     <!-- SESIONES -->
@@ -365,6 +377,18 @@
             <th style="cursor:pointer" onclick="sortAnalisisTabla('periodo','val')">Chips EV ⇅</th>
           </tr></thead>
           <tbody id="tbl-periodo"></tbody>
+        </table></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Chips EV media · Duración de la sesión</div>
+        <div class="chart-wrap"><canvas id="chart-duracion"></canvas></div>
+        <div class="tabla-scroll"><table class="tabla-resumen" style="margin-top:10px;font-size:11px">
+          <thead><tr>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('duracion','key')">Duración ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('duracion','n')">Sesiones ⇅</th>
+            <th style="cursor:pointer" onclick="sortAnalisisTabla('duracion','val')">Chips EV ⇅</th>
+          </tr></thead>
+          <tbody id="tbl-duracion"></tbody>
         </table></div>
       </div>
       <div class="chart-card">
@@ -909,13 +933,7 @@ function renderDashboard(){
   function set(id,val,cls){const el=document.getElementById(id);if(el){el.textContent=val;if(cls)el.className='stat-value '+cls}}
 
   set('ds-ben',fe(ben),vc(ben));
-  if(evMedio!==null){
-    set('ds-ev',(evMedio>=0?'+':'')+evMedio.toFixed(3),vc(evMedio));
-    document.getElementById('ds-ev-sub').textContent='fichas/spin · '+sesConEV.length+' ses.';
-  } else {
-    set('ds-ev','—','neutral');
-    document.getElementById('ds-ev-sub').textContent='sin datos EV aún';
-  }
+  set('ds-ev',evMedio!==null?(evMedio>=0?'+':'')+evMedio.toFixed(3):'—',evMedio!==null?vc(evMedio):'neutral');
   set('ds-eveur',fe(evEur),vc(evEur));
   set('ds-horas',hrs.toFixed(1)+'h','neutral');
   set('ds-ses',ses.length,'neutral');
@@ -968,6 +986,54 @@ function renderDashboard(){
   document.getElementById('dash-cajeros').innerHTML=renderCajerosHTML(false);
   const recent=allSesiones.slice(0,5);
   document.getElementById('dash-recent').innerHTML=recent.length?recent.map(s=>sessionRow(s)).join(''):'<div class="empty-state"><p>Sin sesiones aún.<br>Pulsa + para empezar.</p></div>';
+
+  renderRachas();
+}
+
+// Top rachas de sesiones CONSECUTIVAS (en orden cronológico, sin importar los días
+// que pasen entre una y otra) con chips_ev >= umbral. Solo cuentan sesiones con
+// EV registrado — una sesión sin EV corta la racha (no se puede confirmar si cumple el umbral).
+function renderRachas(){
+  const el=document.getElementById('ds-rachas-list');
+  if(!el)return;
+  const umbral=parseFloat(document.getElementById('ds-racha-umbral')?.value);
+  if(isNaN(umbral)){ el.innerHTML=''; return; }
+
+  const ordenadas=[...allSesiones].sort((a,b)=>(a.fecha+a.hora_fin).localeCompare(b.fecha+b.hora_fin));
+  const rachas=[];
+  let actual=[];
+  ordenadas.forEach(s=>{
+    if(s.chips_ev!=null&&s.chips_ev>=umbral){
+      actual.push(s);
+    } else {
+      if(actual.length) rachas.push(actual);
+      actual=[];
+    }
+  });
+  if(actual.length) rachas.push(actual);
+
+  const top=rachas.filter(r=>r.length>=2).sort((a,b)=>b.length-a.length).slice(0,5);
+
+  if(!top.length){
+    el.innerHTML='<div class="empty-state" style="padding:16px"><p>Sin rachas de 2+ sesiones aún con ese umbral.</p></div>';
+    return;
+  }
+  el.innerHTML=top.map((r,i)=>{
+    const desde=new Date(r[0].fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+    const hasta=new Date(r[r.length-1].fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+    const evMedioRacha=r.reduce((a,s)=>a+s.chips_ev,0)/r.length;
+    const benRacha=r.reduce((a,s)=>a+(s.ganado-s.total_apostado),0);
+    return`<div class="stat-card" style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;font-size:14px">#${i+1} · ${r.length} sesiones seguidas</span>
+        <span style="font-size:11px;color:var(--muted)">${desde} → ${hasta}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px">
+        <span>Media: <strong class="up">+${evMedioRacha.toFixed(1)} chips EV</strong></span>
+        <span>Beneficio: <strong class="${benRacha>=0?'up':'down'}">${benRacha>=0?'+':''}${benRacha.toFixed(2)}€</strong></span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Cajeros ───────────────────────────────────────────────────
@@ -1599,20 +1665,20 @@ function renderAnalisis(){
   if(analisisFilter!=='todas')ses=ses.filter(s=>s.sala===analisisFilter);
   const noData='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px">Necesitas más sesiones con EV para el análisis.</div>';
   if(ses.length<3){
-    ['hora','dia','periodo'].forEach(id=>{
+    ['hora','dia','periodo','duracion'].forEach(id=>{
       const c=document.getElementById('chart-'+id);
       if(c)c.parentElement.innerHTML=noData;
     });
   } else {
-    buildHora(ses); buildDia(ses); buildPeriodo(ses);
+    buildHora(ses); buildDia(ses); buildPeriodo(ses); buildDuracion(ses);
   }
   buildAcum();
   if(!_rivalesCache.length) cargarRivales(); else renderRivalesTabla();
 }
 // Caché de los datos agrupados de cada gráfico, para alimentar las tablas ordenables
 // sin recalcular la agrupación por separado.
-let _analisisTablaData={hora:[],dia:[],periodo:[]};
-let _analisisSortState={hora:{col:'key',asc:true},dia:{col:'key',asc:true},periodo:{col:'key',asc:true}};
+let _analisisTablaData={hora:[],dia:[],periodo:[],duracion:[]};
+let _analisisSortState={hora:{col:'key',asc:true},dia:{col:'key',asc:true},periodo:{col:'key',asc:true},duracion:{col:'key',asc:true}};
 
 function buildHora(ses){
   const by={};
@@ -1647,6 +1713,31 @@ function buildPeriodo(ses){
   buildBar('chart-periodo',per,data,counts);
   _analisisTablaData.periodo=per.map((key,i)=>({key,n:counts[i],val:data[i]})).filter(r=>r.n>0);
   renderAnalisisTabla('periodo');
+}
+
+// Tramos de duración de sesión (en minutos) según los cortes indicados por el usuario.
+const DURACION_TRAMOS=[
+  {label:'0–45min',   min:0,   max:45},
+  {label:'46–75min',  min:46,  max:75},   // 46min a 1h15
+  {label:'76–105min', min:76,  max:105},  // 1h16 a 1h45
+  {label:'106–135min',min:106, max:135},  // 1h46 a 2h15
+  {label:'136–165min',min:136, max:165},  // 2h16 a 2h45
+  {label:'166–210min',min:166, max:210},  // 2h46 a 3h30
+  {label:'211min+',   min:211, max:Infinity}, // 3h31+
+];
+function buildDuracion(ses){
+  const by=DURACION_TRAMOS.map(()=>[]);
+  ses.forEach(s=>{
+    const mins=s.minutos_jugados||0;
+    const idx=DURACION_TRAMOS.findIndex(t=>mins>=t.min&&mins<=t.max);
+    if(idx>=0) by[idx].push(s.chips_ev);
+  });
+  const labels=DURACION_TRAMOS.map(t=>t.label);
+  const counts=by.map(arr=>arr.length);
+  const data=by.map(arr=>arr.length?avg(arr):null);
+  buildBar('chart-duracion',labels,data,counts);
+  _analisisTablaData.duracion=labels.map((key,i)=>({key,n:counts[i],val:data[i]})).filter(r=>r.n>0);
+  renderAnalisisTabla('duracion');
 }
 
 // Ordena y renderiza la tabla de un gráfico (hora/dia/periodo).
