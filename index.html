@@ -530,6 +530,7 @@
         <div class="field"><label>Chips EV</label><input id="ev-1" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
         <div class="field"><label>EV euros (€)</label><input id="ev-eur-1" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
       </div>
+        <div class="field"><label>ITM (nº spins ganados)</label><input id="itm-1" type="number" min="0" placeholder="—" oninput="onNivelItmInput()"></div>
     </div>
 
     <!-- NIVEL 2 -->
@@ -554,6 +555,7 @@
         <div class="field"><label>Chips EV</label><input id="ev-2" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
         <div class="field"><label>EV euros (€)</label><input id="ev-eur-2" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
       </div>
+        <div class="field"><label>ITM (nº spins ganados)</label><input id="itm-2" type="number" min="0" placeholder="—" oninput="onNivelItmInput()"></div>
     </div>
 
     <!-- NIVEL 3 -->
@@ -578,6 +580,7 @@
         <div class="field"><label>Chips EV</label><input id="ev-3" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
         <div class="field"><label>EV euros (€)</label><input id="ev-eur-3" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
       </div>
+        <div class="field"><label>ITM (nº spins ganados)</label><input id="itm-3" type="number" min="0" placeholder="—" oninput="onNivelItmInput()"></div>
     </div>
 
     <!-- NIVEL 4 -->
@@ -602,6 +605,7 @@
         <div class="field"><label>Chips EV</label><input id="ev-4" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
         <div class="field"><label>EV euros (€)</label><input id="ev-eur-4" type="number" step="0.01" placeholder="—" oninput="calcTotales()"></div>
       </div>
+        <div class="field"><label>ITM (nº spins ganados)</label><input id="itm-4" type="number" min="0" placeholder="—" oninput="onNivelItmInput()"></div>
     </div>
 
     <button id="add-nivel-btn" onclick="addNivel()" style="background:var(--accent-soft);color:var(--accent);border:1px dashed var(--accent);border-radius:8px;width:100%;padding:9px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:12px">+ Añadir nivel</button>
@@ -843,6 +847,17 @@ async function doLogin(){
 async function doLogout(){await sb.auth.signOut();showScreen('login')}
 
 // ── Load ──────────────────────────────────────────────────────
+
+// Las sesiones multi-stake guardadas antes del arreglo tienen chips_ev = SUMA de las medias de
+// cada nivel. Se recalcula aquí como media ponderada por spins a partir de stakes_breakdown,
+// así toda la app (inicio, análisis, rachas) lee el valor correcto sin tocar la base de datos.
+function corregirChipsEvMulti(s){
+  const bd=Array.isArray(s.stakes_breakdown)?s.stakes_breakdown:null;
+  if(!bd||bd.length<2)return;
+  const con=bd.filter(n=>n&&n.chips_ev!=null&&n.spins>0);
+  const sp=con.reduce((a,n)=>a+n.spins,0);
+  s.chips_ev=sp>0?con.reduce((a,n)=>a+n.chips_ev*n.spins,0)/sp:null;
+}
 async function loadAll(){
   const [sR,cR,mR,pR,rbR]=await Promise.all([
     sb.from('spins_sesiones').select('*').order('fecha',{ascending:false}).order('hora_fin',{ascending:false}),
@@ -851,7 +866,8 @@ async function loadAll(){
     sb.from('spins_promociones').select('*').order('fecha',{ascending:false}),
     sb.from('spins_rakeback_semanal').select('*').order('semana_inicio',{ascending:false})
   ]);
-  allSesiones=sR.data||[]; cajeros=cR.data||[]; allMovimientos=mR.data||[]; allPromociones=pR.data||[]; rbSemanal=rbR.data||[];
+  allSesiones=sR.data||[]; cajeros=cR.data||[];
+  allSesiones.forEach(corregirChipsEvMulti); allMovimientos=mR.data||[]; allPromociones=pR.data||[]; rbSemanal=rbR.data||[];
   if(!_cuentasLiquido.length && !_cuentasPoker.length) await cargarCuentasPatrimonio();
   renderCurrent();
 }
@@ -2266,8 +2282,13 @@ function duracionRealMinutos(spins){
   return Math.round(Math.max(0,(finReal-inicioReal)/1000)/60);
 }
 
+let _xmlGruposSeleccionados=new Set();
 function mostrarResumenImportacion(grupos,totalSpins){
   _xmlImportGrupos=grupos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  _xmlGruposSeleccionados=new Set();
+  renderXmlImportModal(totalSpins);
+}
+function renderXmlImportModal(totalSpins){
   const resumenHtml=_xmlImportGrupos.map((gr,idx)=>{
     const gan=gr.spins.reduce((a,s)=>a+s.win,0);
     const apost=gr.spins.length*gr.stake;
@@ -2275,14 +2296,22 @@ function mostrarResumenImportacion(grupos,totalSpins){
     const itm=gr.spins.filter(s=>s.place===1).length;
     const itmPct=gr.spins.length?(itm/gr.spins.length*100).toFixed(0):0;
     const fechaFmt=new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
-    return`<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span>${fechaFmt} · ${gr.stake.toFixed(2)}€ · ${gr.spins.length} spins</span>
-        <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
+    const checked=_xmlGruposSeleccionados.has(idx);
+    return`<label style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleXmlGrupoSel(${idx})" style="margin-top:3px;width:16px;height:16px;accent-color:var(--accent)">
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>${fechaFmt} · ${gr.stake.toFixed(2)}€ · ${gr.spins.length} spins</span>
+          <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
+        </div>
+        <div style="color:var(--muted);font-size:11px;margin-top:2px">${mins}min · ITM ${itm}/${gr.spins.length} (${itmPct}%)</div>
       </div>
-      <div style="color:var(--muted);font-size:11px;margin-top:2px">${mins}min · ITM ${itm}/${gr.spins.length} (${itmPct}%)</div>
-    </div>`;
+    </label>`;
   }).join('');
+
+  const nSel=_xmlGruposSeleccionados.size;
+  const btnTexto=nSel<=1?'Rellenar formulario con la selección':`Combinar ${nSel} seleccionados y rellenar formulario`;
+
   const modalHtml=`
     <div id="modal-xml-import" class="modal-overlay open" onclick="if(event.target===this)closeXmlImportModal()">
       <div class="modal-sheet">
@@ -2291,64 +2320,96 @@ function mostrarResumenImportacion(grupos,totalSpins){
         <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
           Se han agrupado en ${_xmlImportGrupos.length} sesión${_xmlImportGrupos.length===1?'':'es'} por día de póker
           (spins antes de las 06:00 cuentan para el día anterior) y stake.
-          Se rellenan spins, ganancia, duración e ITM automáticamente —
-          <strong>el Chips EV no viene en estos archivos</strong>, tendrás que añadirlo desde HM3/PT4.
+          Si jugaste varios stakes a la vez el mismo día, marca sus checkboxes para combinarlos
+          en una sola sesión con varios niveles — <strong>el Chips EV no viene en estos archivos</strong>,
+          tendrás que añadirlo desde HM3/PT4.
         </p>
         <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">${resumenHtml}</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${_xmlImportGrupos.map((gr,idx)=>`<button onclick="aplicarImportacionXml(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px;font-family:inherit;font-size:13px;cursor:pointer">
-            Rellenar formulario: ${new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} · ${gr.stake.toFixed(2)}€ (${gr.spins.length} spins)
-          </button>`).join('')}
-        </div>
+        <button onclick="aplicarImportacionXmlCombinado()" ${nSel===0?'disabled':''}
+          style="background:${nSel===0?'var(--border)':'var(--accent)'};color:#fff;border:none;border-radius:8px;padding:10px;font-family:inherit;font-size:13px;cursor:${nSel===0?'not-allowed':'pointer'};width:100%">
+          ${btnTexto}
+        </button>
         <div class="modal-footer"><button class="btn btn-ghost btn-sm" onclick="closeXmlImportModal()">Cerrar</button></div>
       </div>
     </div>`;
+  document.getElementById('modal-xml-import')?.remove();
   document.body.insertAdjacentHTML('beforeend',modalHtml);
+}
+function toggleXmlGrupoSel(idx){
+  if(_xmlGruposSeleccionados.has(idx)) _xmlGruposSeleccionados.delete(idx);
+  else {
+    if(_xmlGruposSeleccionados.size>=MAX_NIVELES){ showToast('Máximo '+MAX_NIVELES+' niveles de stake por sesión'); return; }
+    _xmlGruposSeleccionados.add(idx);
+  }
+  renderXmlImportModal(_xmlImportGrupos.reduce((a,g)=>a+g.spins.length,0));
 }
 function closeXmlImportModal(){
   document.getElementById('modal-xml-import')?.remove();
 }
 
-// Rellena el formulario de Nueva Sesión con los datos agregados de un grupo importado.
-function aplicarImportacionXml(idx){
-  const gr=_xmlImportGrupos[idx];
-  if(!gr)return;
+// Rellena el formulario de Nueva Sesión combinando uno o varios grupos seleccionados
+// (cada grupo = un stake distinto del mismo día de póker) en los niveles 1-4 del
+// formulario. Soluciona dos problemas del flujo anterior:
+//  1) antes solo se podía rellenar un stake por vez — seleccionar un segundo grupo
+//     borraba el primero, en vez de añadirse como nivel 2.
+//  2) el ITM mostrado en el resumen de cada grupo SIEMPRE fue específico de ese
+//     stake (gr.spins.filter(...) solo contiene los spins de ese grupo) — si parecía
+//     "total", era porque solo se había importado un grupo a la vez.
+function aplicarImportacionXmlCombinado(){
+  const idxs=[..._xmlGruposSeleccionados].sort((a,b)=>a-b);
+  if(!idxs.length)return;
+  const grupos=idxs.map(i=>_xmlImportGrupos[i]).filter(Boolean);
+  if(!grupos.length)return;
   closeXmlImportModal();
   openSesionModal(); // reset limpio del formulario
 
-  const totalSpins=gr.spins.length;
-  const totalGanado=gr.spins.reduce((a,s)=>a+s.win,0);
-  const itmCount=gr.spins.filter(s=>s.place===1).length;
-  const totalMinutos=duracionRealMinutos(gr.spins);
+  // Fecha: todos los grupos seleccionados comparten el mismo día de póker
+  // (vienen ya agrupados así desde handleXmlImport), así que basta con el primero.
+  const fecha=grupos[0].fecha;
 
-  // Hora de fin real = inicio del ÚLTIMO spin + su duración
-  const finales=gr.spins.map(s=>{
+  // Agregados GLOBALES de la sesión (todos los spins de todos los stakes juntos):
+  // ITM total, duración real (inicio del primer spin de cualquier stake → fin del
+  // último de cualquier stake) y hora de fin real.
+  const todosLosSpins=grupos.flatMap(g=>g.spins);
+  const itmTotal=todosLosSpins.filter(s=>s.place===1).length;
+  const totalMinutos=duracionRealMinutos(todosLosSpins);
+  const finales=todosLosSpins.map(s=>{
     const inicio=new Date(s.startdate.replace(' ','T'));
     return new Date(inicio.getTime()+s.durationSec*1000);
   });
   const horaFinReal=finales.reduce((max,f)=>f>max?f:max,finales[0]);
 
-  // Sala: estos XML provienen de PartyPoker (red iPoker), no de Winamax.
-  // 'PartyPoker' es el nombre exacto reconocido como pill estándar en el formulario.
   setSalaByName('PartyPoker');
-  document.getElementById('ses-fecha').value=gr.fecha;
+  document.getElementById('ses-fecha').value=fecha;
   document.getElementById('ses-hora-fin').value=horaFinReal.toTimeString().slice(0,5);
   document.getElementById('ses-minutos').value=totalMinutos;
-  document.getElementById('ses-itm-count').value=itmCount;
+  document.getElementById('ses-itm-count').value=itmTotal;
   calcItmPct();
-  // Rellenar hora-fin/minutos con .value= NO dispara el oninput que normalmente
-  // calcula la hora de inicio mostrada en pantalla — hay que llamarlo a mano.
   calcHoraInicio();
-  sesionDateManuallyChanged=true; // ya viene fijada por el XML, no recalcular con la hora actual
+  sesionDateManuallyChanged=true;
 
-  setNivelStakeByVal(1,gr.stake);
-  document.getElementById('spins-1').value=totalSpins;
-  document.getElementById('ganado-1').value=totalGanado.toFixed(2);
-  // ev-1 se deja vacío a propósito — el usuario lo rellena desde HM3/PT4
+  // Un nivel por grupo/stake seleccionado. El nivel 1 ya existe por defecto;
+  // para el resto hay que llamar a addNivel() tantas veces como falten.
+  let totalSpinsGlobal=0;
+  grupos.forEach((gr,i)=>{
+    const nivel=i+1;
+    if(nivel>1&&nivel>activeNiveles) addNivel();
+    const spins=gr.spins.length;
+    const ganado=gr.spins.reduce((a,s)=>a+s.win,0);
+    setNivelStakeByVal(nivel,gr.stake);
+    document.getElementById('spins-'+nivel).value=spins;
+    document.getElementById('ganado-'+nivel).value=ganado.toFixed(2);
+    document.getElementById('itm-'+nivel).value=gr.spins.filter(x=>x.place===1).length;
+    // ev-N se deja vacío a propósito — el usuario lo rellena desde HM3/PT4, por nivel
+    totalSpinsGlobal+=spins;
+  });
 
-  document.getElementById('ses-notas').value='Importado desde XML PartyPoker ('+totalSpins+' spins)';
+  const resumenStakes=grupos.map(g=>g.stake.toFixed(2)+'€').join(' + ');
+  document.getElementById('ses-notas').value='Importado desde XML PartyPoker ('+totalSpinsGlobal+' spins · '+resumenStakes+')';
   calcTotales();
-  showToast('Formulario rellenado — añade el Chips EV desde HM3/PT4 y guarda');
+  showToast(grupos.length>1
+    ? `Formulario rellenado con ${grupos.length} niveles de stake — añade el Chips EV de cada uno desde HM3/PT4`
+    : 'Formulario rellenado — añade el Chips EV desde HM3/PT4 y guarda');
 }
 
 // ── Session Form ──────────────────────────────────────────────
@@ -2371,7 +2432,7 @@ function openSesionModal(sesion=null){
     document.getElementById('stake-c-'+i).style.display='none';
     document.getElementById('stake-c-'+i).value='';
     selectedNivelStake[i]=null;
-    const ids=['spins','ganado','ev','ev-eur'];
+    const ids=['spins','ganado','ev','ev-eur','itm'];
     ids.forEach(f=>{const el=document.getElementById(f+'-'+i);if(el)el.value=''});
   }
   document.getElementById('add-nivel-btn').style.display='block';
@@ -2403,6 +2464,7 @@ function openSesionModal(sesion=null){
         document.getElementById('ganado-'+i).value=nv.ganado||'';
         document.getElementById('ev-'+i).value=nv.chips_ev??'';
         document.getElementById('ev-eur-'+i).value=nv.ev_euros??'';
+        const itmEl=document.getElementById('itm-'+i);if(itmEl)itmEl.value=nv.itm_count??'';
       });
       if(activeNiveles>1)document.getElementById('nivel-1-hdr').style.display='flex';
     } else {
@@ -2411,6 +2473,7 @@ function openSesionModal(sesion=null){
       document.getElementById('ganado-1').value=sesion.ganado||'';
       document.getElementById('ev-1').value=sesion.chips_ev??'';
       document.getElementById('ev-eur-1').value=sesion.ev_euros??'';
+      const itm1=document.getElementById('itm-1');if(itm1)itm1.value=sesion.itm_count??'';
     }
     calcHoraInicio(); calcTotales(); calcItmPct();
   } else {
@@ -2554,6 +2617,17 @@ function calcTotales(){
   if(!rakeEl.dataset.manual||rakeEl.dataset.manual==='0')rakeEl.value=totAp>0?(totAp*0.07).toFixed(2):'';
   calcItmPct();
 }
+
+// El ITM de la sesión es la suma de los ITM de cada stake. Si ningún nivel tiene ITM
+// introducido se deja intacto el campo total (sesiones sin desglose por stake).
+function onNivelItmInput(){
+  let total=0,alguno=false;
+  for(let i=1;i<=activeNiveles;i++){
+    const v=parseInt(document.getElementById('itm-'+i)?.value);
+    if(!isNaN(v)){total+=v;alguno=true}
+  }
+  if(alguno){document.getElementById('ses-itm-count').value=total;calcItmPct();}
+}
 function calcItmPct(){
   let totalSpins=0;
   for(let i=1;i<=activeNiveles;i++)totalSpins+=parseInt(document.getElementById('spins-'+i)?.value)||0;
@@ -2589,11 +2663,17 @@ async function saveSesion(){
     if(isNaN(ganado)){errEl.textContent='Introduce los euros ganados.';errEl.style.display='block';return}
     const ev=parseFloat(document.getElementById('ev-'+i)?.value);
     const evEur=parseFloat(document.getElementById('ev-eur-'+i)?.value);
-    niveles.push({stake,spins,apostado:stake*spins,ganado,chips_ev:isNaN(ev)?null:ev,ev_euros:isNaN(evEur)?null:evEur});
+    const itmN=parseInt(document.getElementById('itm-'+i)?.value);
+    niveles.push({stake,spins,apostado:stake*spins,ganado,chips_ev:isNaN(ev)?null:ev,ev_euros:isNaN(evEur)?null:evEur,itm_count:isNaN(itmN)?null:itmN});
   }
   const total_apostado=niveles.reduce((a,n)=>a+n.apostado,0);
   const ganado_total=niveles.reduce((a,n)=>a+n.ganado,0);
-  const chips_ev_total=niveles.reduce((a,n)=>a+(n.chips_ev||0),0);
+  // Chips EV es una MEDIA por spin: el de la sesión es la media ponderada por spins de los
+  // niveles con EV registrado. (Antes se SUMABAN las medias de cada nivel, inflando el valor
+  // en toda sesión con más de un stake.)
+  const nivelesConEv=niveles.filter(n=>n.chips_ev!=null);
+  const spinsConEv=nivelesConEv.reduce((a,n)=>a+n.spins,0);
+  const chips_ev_total=spinsConEv>0?nivelesConEv.reduce((a,n)=>a+n.chips_ev*n.spins,0)/spinsConEv:0;
   const ev_euros_total=niveles.reduce((a,n)=>a+(n.ev_euros||0),0);
   const isMulti=activeNiveles>1;
   const payload={
@@ -2727,7 +2807,7 @@ function openDetalle(id){
   if(s.stakes_breakdown&&s.stakes_breakdown.length>1){
     bd.style.display='block';
     bd.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Desglose por nivel</div>'+
-      s.stakes_breakdown.map((n,i)=>`<div style="background:var(--bg);border-radius:6px;padding:8px 10px;margin-bottom:5px;font-size:13px"><strong>€${n.stake}</strong> · ${n.spins} spins · ${n.apostado?.toFixed(2)}€ apost. · <span style="color:${(n.ganado-n.apostado)>=0?'var(--green)':'var(--red)'}">${(n.ganado-n.apostado)>=0?'+':''}${(n.ganado-n.apostado).toFixed(2)}€</span>${n.chips_ev!=null?' · EV '+(n.chips_ev>=0?'+':'')+n.chips_ev.toFixed(2):''}</div>`).join('');
+      s.stakes_breakdown.map((n,i)=>`<div style="background:var(--bg);border-radius:6px;padding:8px 10px;margin-bottom:5px;font-size:13px"><strong>€${n.stake}</strong> · ${n.spins} spins · ${n.apostado?.toFixed(2)}€ apost. · <span style="color:${(n.ganado-n.apostado)>=0?'var(--green)':'var(--red)'}">${(n.ganado-n.apostado)>=0?'+':''}${(n.ganado-n.apostado).toFixed(2)}€</span>${n.chips_ev!=null?' · EV '+(n.chips_ev>=0?'+':'')+n.chips_ev.toFixed(2):''}${n.itm_count!=null&&n.spins?' · ITM '+n.itm_count+'/'+n.spins+' ('+(n.itm_count/n.spins*100).toFixed(0)+'%)':''}</div>`).join('');
   } else bd.style.display='none';
   const ne=document.getElementById('detalle-notas');
   if(s.notas){ne.textContent='💬 '+s.notas;ne.style.display='block'}else ne.style.display='none';
