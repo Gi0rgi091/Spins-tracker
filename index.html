@@ -170,6 +170,8 @@
     .tabla-resumen tr.fila-sesion{cursor:pointer}
     .tabla-resumen tr.fila-sesion:hover td{background:var(--bg)}
     .tabla-resumen tr.fila-total td{background:var(--bg);font-weight:600;border-top:2px solid var(--border)}
+    .up{color:var(--green)}
+    .down{color:var(--red)}
     .rb-pct-input{width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;text-align:center;outline:none;background:var(--surface)}
     .rb-pct-input:focus{border-color:var(--accent)}
     .sala-dot-sm{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -231,6 +233,8 @@
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
       <div class="section-title">Resumen del mes</div>
+      <div id="ds-stake-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div id="ds-stake-note" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px"></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">Beneficio</div><div class="stat-value neutral" id="ds-ben">—</div></div>
         <div class="stat-card"><div class="stat-label">Chips EV/spin</div><div class="stat-value neutral" id="ds-ev">—</div></div>
@@ -252,6 +256,15 @@
         </div>
       </div>
       <div id="ds-ev-rb-list"></div>
+
+      <div class="section-title">Resumen por buy-in</div>
+      <div class="stat-card" style="padding:4px 0 8px">
+        <div class="tabla-scroll"><table class="tabla-resumen">
+          <thead><tr><th>Buy-in</th><th>Spins</th><th>Chips EV</th><th>EV ROI</th><th>EV €</th><th>EV € + RB</th></tr></thead>
+          <tbody id="ds-buyin-body"></tbody>
+        </table></div>
+        <div style="font-size:10px;color:var(--muted);padding:6px 12px 0">EV ROI, EV € y EV € + RB solo cuentan los stakes con EV € registrado. El RB usa el % de arriba.</div>
+      </div>
       <div class="section-title">Cajeros</div>
       <div id="dash-cajeros" class="cajero-row"></div>
       <div class="section-title">Últimas sesiones</div>
@@ -926,23 +939,119 @@ function setDsRbPctCustom(val){
   renderDashboard();
 }
 
+
+// ── Datos "stake a stake" ───────────────────────────────────────────────
+// Una sesión de un nivel guarda su stake en la propia sesión; una de varios guarda el detalle
+// en stakes_breakdown. Esta función las unifica en registros por stake, que es lo que usan el
+// filtro por stake y la tabla por buy-in del Inicio.
+function nivelesDeSesion(s){
+  const bd=Array.isArray(s.stakes_breakdown)&&s.stakes_breakdown.length?s.stakes_breakdown:null;
+  if(bd){
+    return bd.filter(n=>n&&n.stake!=null).map(n=>({
+      stake:+n.stake, spins:n.spins||0, apostado:n.apostado??(n.stake*(n.spins||0)),
+      ganado:n.ganado||0, chips_ev:n.chips_ev??null, ev_euros:n.ev_euros??null, itm:n.itm_count??null
+    }));
+  }
+  const spins=s.num_spins||0;
+  let stake=s.stake;
+  if(stake==null&&spins>0) stake=Math.round((s.total_apostado/spins)*100)/100;
+  if(stake==null) return [];
+  return [{stake:+stake, spins, apostado:s.total_apostado??stake*spins, ganado:s.ganado||0,
+           chips_ev:s.chips_ev??null, ev_euros:s.ev_euros??null, itm:s.itm_count??null}];
+}
+
+let dsStakeSel=null; // null = todos los stakes; si no, Set con los stakes seleccionados
+function stakeIncluido(st){return dsStakeSel===null||dsStakeSel.has(st)}
+function toggleDsStake(st){
+  if(st===null) dsStakeSel=null;
+  else if(dsStakeSel===null) dsStakeSel=new Set([st]);
+  else{
+    if(dsStakeSel.has(st)) dsStakeSel.delete(st); else dsStakeSel.add(st);
+    if(!dsStakeSel.size) dsStakeSel=null;
+  }
+  renderDashboard();
+}
+function renderStakeFilter(){
+  const el=document.getElementById('ds-stake-filter'); if(!el)return;
+  const stakes=[...new Set(allSesiones.flatMap(s=>nivelesDeSesion(s).map(n=>n.stake)))].sort((a,b)=>a-b);
+  if(!stakes.length){el.innerHTML='';return;}
+  el.innerHTML=
+    `<button class="pill ${dsStakeSel===null?'selected':''}" onclick="toggleDsStake(null)">Todos</button>`+
+    stakes.map(st=>`<button class="pill ${dsStakeSel&&dsStakeSel.has(st)?'selected':''}" onclick="toggleDsStake(${st})">${st}s</button>`).join('');
+}
+
+// Niveles del mes visible que pasan el filtro. Duración y rake solo existen por sesión, así que
+// en sesiones con varios stakes se reparten: la duración según spins y el rake según lo apostado.
+function nivelesFiltradosMes(){
+  const out=[];
+  getMonthSesiones().forEach(s=>{
+    const lv=nivelesDeSesion(s);
+    if(!lv.length)return;
+    const totSp=lv.reduce((a,n)=>a+n.spins,0)||1;
+    const totAp=lv.reduce((a,n)=>a+n.apostado,0)||1;
+    lv.forEach(n=>{
+      if(!stakeIncluido(n.stake))return;
+      out.push({ses:s,n,multi:lv.length>1,min:(s.minutos_jugados||0)*n.spins/totSp,rake:(s.rake||0)*n.apostado/totAp});
+    });
+  });
+  return out;
+}
+function agregarNiveles(items){
+  const ids=new Set(items.map(i=>i.ses.id??(i.ses.fecha+i.ses.hora_fin)));
+  let ben=0,evEur=0,spins=0,min=0,rake=0,fichas=0,spinsEv=0;
+  items.forEach(({n,min:m,rake:r})=>{
+    ben+=n.ganado-n.apostado; spins+=n.spins; min+=m; rake+=r;
+    if(n.ev_euros!=null) evEur+=n.ev_euros;
+    if(n.chips_ev!=null&&n.spins>0){fichas+=n.chips_ev*n.spins;spinsEv+=n.spins}
+  });
+  return {nSes:ids.size,ben,evEur,spins,min,rake,evMedio:spinsEv>0?fichas/spinsEv:null};
+}
+
+function renderResumenBuyin(items){
+  const body=document.getElementById('ds-buyin-body'); if(!body)return;
+  const by={};
+  items.forEach(it=>{(by[it.n.stake]=by[it.n.stake]||[]).push(it)});
+  const stakes=Object.keys(by).map(Number).sort((a,b)=>a-b);
+  if(!stakes.length){body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">Sin datos este mes.</td></tr>';return}
+  const num=(v,d=2)=>v.toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const sg=(v,d=2,suf='')=>v==null?'—':(v>0?'+':'')+num(v,d)+suf;
+  const cls=v=>v==null?'':v>=0?'up':'down';
+  const calc=arr=>{
+    let spins=0,apost=0,fichas=0,spinsEv=0,ev=0,apEv=0,rkEv=0;
+    arr.forEach(({n,rake})=>{
+      spins+=n.spins; apost+=n.apostado;
+      if(n.chips_ev!=null&&n.spins>0){fichas+=n.chips_ev*n.spins;spinsEv+=n.spins}
+      if(n.ev_euros!=null){ev+=n.ev_euros;apEv+=n.apostado;rkEv+=rake}
+    });
+    return {spins,buyin:spins>0?apost/spins:0,chips:spinsEv>0?fichas/spinsEv:null,
+            roi:apEv>0?ev/apEv*100:null,ev:apEv>0?ev:null,evRb:apEv>0?ev+rkEv*dsRbPct/100:null};
+  };
+  const fila=(label,r,total)=>`<tr${total?' class="fila-total"':''}>
+    <td>${label}</td><td>${r.spins.toLocaleString('es')}</td>
+    <td class="${cls(r.chips)}">${sg(r.chips)}</td>
+    <td class="${cls(r.roi)}">${sg(r.roi,2,'%')}</td>
+    <td class="${cls(r.ev)}">${sg(r.ev,2,'€')}</td>
+    <td class="${cls(r.evRb)}">${sg(r.evRb,2,'€')}</td></tr>`;
+  const tot=calc(items);
+  body.innerHTML=stakes.map(st=>fila(st+'€',calc(by[st]),false)).join('')+
+                 fila('Total · Ø '+num(tot.buyin)+'€',tot,true);
+}
+
 function renderDashboard(){
-  const ses=getMonthSesiones();
-  const ben=ses.reduce((a,s)=>a+(s.ganado-s.total_apostado),0);
-  const evEur=ses.reduce((a,s)=>a+(s.ev_euros||0),0);
-  const hrs=ses.reduce((a,s)=>a+s.minutos_jugados,0)/60;
-  const rake=ses.reduce((a,s)=>a+(s.rake||0),0);
-
-  // Chips EV/spin: media de chips EV por spin (solo sesiones con EV registrado)
-  const sesConEV=ses.filter(s=>s.chips_ev!=null&&s.num_spins>0);
-  const totalFichas=sesConEV.reduce((a,s)=>a+(s.chips_ev*s.num_spins),0);
-  const totalSpinsEV=sesConEV.reduce((a,s)=>a+s.num_spins,0);
-  const evMedio=totalSpinsEV>0?totalFichas/totalSpinsEV:null;
-
-  // Total spins jugados y medias por sesión (sobre todas las sesiones del mes, no solo las que tienen EV)
-  const totalSpins=ses.reduce((a,s)=>a+(s.num_spins||0),0);
-  const mediaTiempoMin=ses.length?ses.reduce((a,s)=>a+(s.minutos_jugados||0),0)/ses.length:0;
-  const mediaSpins=ses.length?totalSpins/ses.length:0;
+  renderStakeFilter();
+  const items=nivelesFiltradosMes();
+  const agg=agregarNiveles(items);
+  const {ben,evEur,rake,evMedio,nSes}=agg;
+  const hrs=agg.min/60;
+  const totalSpins=agg.spins;
+  const mediaTiempoMin=nSes?agg.min/nSes:0;
+  const mediaSpins=nSes?totalSpins/nSes:0;
+  const noteEl=document.getElementById('ds-stake-note');
+  if(noteEl){
+    const hayRepartido=dsStakeSel!==null&&items.some(i=>i.multi);
+    noteEl.style.display=hayRepartido?'block':'none';
+    noteEl.textContent='Hay sesiones con varios stakes: su duración se reparte según los spins y su rake según lo apostado en cada stake (estimación).';
+  }
 
   function vc(v){return v>0?'pos':v<0?'neg':'neutral'}
   function fe(v,d=2){return(v>=0?'+':'')+v.toFixed(d)+'€'}
@@ -952,7 +1061,7 @@ function renderDashboard(){
   set('ds-ev',evMedio!==null?(evMedio>=0?'+':'')+evMedio.toFixed(3):'—',evMedio!==null?vc(evMedio):'neutral');
   set('ds-eveur',fe(evEur),vc(evEur));
   set('ds-horas',hrs.toFixed(1)+'h','neutral');
-  set('ds-ses',ses.length,'neutral');
+  set('ds-ses',nSes,'neutral');
   set('ds-rake',fmtE(rake),'neutral');
   document.getElementById('ds-rb-est').textContent='';
   set('ds-total-spins',totalSpins.toLocaleString('es'),'neutral');
@@ -963,11 +1072,11 @@ function renderDashboard(){
   const evRbEl=document.getElementById('ds-ev-rb-list');
   if(evRbEl){
     const porSala={};
-    ses.forEach(s=>{
+    items.forEach(({ses:s,n,rake:rk})=>{
       if(!porSala[s.sala])porSala[s.sala]={evEur:0,rake:0,ben:0};
-      porSala[s.sala].evEur+=(s.ev_euros||0);
-      porSala[s.sala].rake+=(s.rake||0);
-      porSala[s.sala].ben+=(s.ganado-s.total_apostado);
+      porSala[s.sala].evEur+=(n.ev_euros||0);
+      porSala[s.sala].rake+=rk;
+      porSala[s.sala].ben+=(n.ganado-n.apostado);
     });
     const salas=Object.keys(porSala).filter(s=>porSala[s].evEur!==0||porSala[s].rake!==0||porSala[s].ben!==0);
     if(!salas.length){
@@ -999,6 +1108,7 @@ function renderDashboard(){
     }
   }
 
+  renderResumenBuyin(items);
   document.getElementById('dash-cajeros').innerHTML=renderCajerosHTML(false);
   const recent=allSesiones.slice(0,5);
   document.getElementById('dash-recent').innerHTML=recent.length?recent.map(s=>sessionRow(s)).join(''):'<div class="empty-state"><p>Sin sesiones aún.<br>Pulsa + para empezar.</p></div>';
