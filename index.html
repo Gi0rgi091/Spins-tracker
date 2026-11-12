@@ -827,11 +827,35 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   if(!url||!key){showScreen('setup');return}
   try{
     sb=createClient(url,key);
-    const {data:{session}}=await sb.auth.getSession();
-    if(session){showScreen('app');await loadAll();}
-    else showScreen('login');
-  }catch{showScreen('login')}
+    // getSession puede intentar renovar el token contra Supabase: si no responde, la pantalla
+    // se quedaba en blanco muchos segundos. Se limita a 8 s y se explica el motivo.
+    const {data:{session}}=await conTimeout(sb.auth.getSession(),8000,'Supabase tarda demasiado en responder');
+    if(session){
+      showScreen('app');
+      try{await loadAll()}catch(e){showToast('No se pudieron cargar los datos: '+(e.message||e))}
+    } else showScreen('login');
+  }catch(e){
+    showScreen('login');
+    mostrarErrorLogin(e);
+  }
 });
+
+// Promesa con límite de tiempo
+function conTimeout(promesa,ms,msg){
+  return Promise.race([promesa,new Promise((_,rej)=>setTimeout(()=>rej(new Error(msg||'Tiempo de espera agotado')),ms))]);
+}
+// Distingue "credenciales incorrectas" de "no hay conexión con Supabase" (antes TODO error
+// se mostraba como contraseña incorrecta).
+function mensajeErrorLogin(e){
+  const msg=String((e&&e.message)||e||'error desconocido');
+  if((e&&e.code==='invalid_credentials')||/invalid login credentials/i.test(msg)) return 'Email o contraseña incorrectos.';
+  if(e&&e.status>=400&&e.status<500) return 'No se pudo iniciar sesión: '+msg;
+  return 'No se pudo conectar con Supabase ('+msg+'). No es un fallo de tu contraseña. Si el proyecto es del plan gratuito, puede estar pausado por inactividad: restáuralo desde el panel de Supabase.';
+}
+function mostrarErrorLogin(e){
+  const err=document.getElementById('login-error'); if(!err)return;
+  err.textContent=mensajeErrorLogin(e); err.style.display='block';
+}
 
 // ── Screens ───────────────────────────────────────────────────
 function showScreen(n){
@@ -855,11 +879,13 @@ async function doSetup(){
 async function doLogin(){
   const email=document.getElementById('login-email').value.trim(), pass=document.getElementById('login-pass').value;
   const err=document.getElementById('login-error'); err.style.display='none';
-  try{
-    const {error}=await sb.auth.signInWithPassword({email,password:pass});
-    if(error)throw error;
-    showScreen('app'); await loadAll();
-  }catch{err.textContent='Email o contraseña incorrectos.';err.style.display='block'}
+  let res;
+  try{ res=await conTimeout(sb.auth.signInWithPassword({email,password:pass}),15000,'Tiempo de espera agotado'); }
+  catch(e){ mostrarErrorLogin(e); return; }
+  if(res.error){ mostrarErrorLogin(res.error); return; }
+  showScreen('app');
+  // Si el login funciona pero falla la carga de datos, ya no se hace pasar por contraseña incorrecta
+  try{ await loadAll(); }catch(e){ showToast('Sesión iniciada, pero no se pudieron cargar los datos: '+(e.message||e)); }
 }
 async function doLogout(){await sb.auth.signOut();showScreen('login')}
 
