@@ -172,6 +172,13 @@
     .tabla-resumen tr.fila-total td{background:var(--bg);font-weight:600;border-top:2px solid var(--border)}
     .up{color:var(--green)}
     .down{color:var(--red)}
+    .fin-filtros input[type=date],.fin-filtros input[type=text]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)}
+    .fin-filtros input[type=text]{flex:1;min-width:120px}
+    .fin-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+    .fin-fila{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+    .fin-btn{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:12px;cursor:pointer;color:var(--muted)}
+    .fin-resumen{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7}
+    .fin-resumen b{font-weight:600}
     .rb-pct-input{width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;text-align:center;outline:none;background:var(--surface)}
     .rb-pct-input:focus{border-color:var(--accent)}
     .sala-dot-sm{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -296,6 +303,10 @@
           Importar XML de PartyPoker (varios archivos a la vez)
         </label>
         <input type="file" id="xml-import-input" accept=".xml" multiple style="display:none" onchange="handleXmlImport(this.files)">
+        <label for="xml-import-folder" style="display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg2);border:1px dashed var(--border);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:6px">
+          📁 Importar carpeta entera de PartyPoker (omite los spins ya importados)
+        </label>
+        <input type="file" id="xml-import-folder" webkitdirectory multiple style="display:none" onchange="handleXmlImport(this.files)">
       </div>
       <div id="sesiones-list"></div>
     </div>
@@ -344,8 +355,31 @@
         <button class="sub-tab-btn active" id="subtab-btn-mov" onclick="showFinanzasTab('movimientos')">Movimientos</button>
         <button class="sub-tab-btn" id="subtab-btn-promos" onclick="showFinanzasTab('promos')">Rakeback &amp; Promos</button>
       </div>
-      <div id="finanzas-movimientos"><div id="movimientos-list"></div></div>
-      <div id="finanzas-promos" style="display:none"><div id="promos-list"></div></div>
+      <div id="finanzas-movimientos">
+        <div class="fin-filtros">
+          <div id="mf-tipos" class="fin-pills"></div>
+          <div id="mf-salas" class="fin-pills"></div>
+          <div class="fin-fila">
+            <input type="date" id="mf-desde" onchange="renderMovimientos()"><span style="color:var(--muted)">→</span><input type="date" id="mf-hasta" onchange="renderMovimientos()">
+            <input type="text" id="mf-q" placeholder="Buscar cuenta o nota…" oninput="renderMovimientos()">
+            <button class="fin-btn" onclick="limpiarFiltrosMov()">Limpiar</button>
+          </div>
+          <div id="mf-resumen" class="fin-resumen"></div>
+        </div>
+        <div id="movimientos-list"></div>
+      </div>
+      <div id="finanzas-promos" style="display:none">
+        <div class="fin-filtros">
+          <div id="pf-cats" class="fin-pills"></div>
+          <div id="pf-salas" class="fin-pills"></div>
+          <div class="fin-fila">
+            <input type="date" id="pf-desde" onchange="renderPromos()"><span style="color:var(--muted)">→</span><input type="date" id="pf-hasta" onchange="renderPromos()">
+            <button class="fin-btn" onclick="limpiarFiltrosPromos()">Limpiar</button>
+          </div>
+          <div id="pf-resumen" class="fin-resumen"></div>
+        </div>
+        <div id="promos-list"></div>
+      </div>
     </div>
 
     <!-- ANÁLISIS -->
@@ -1754,10 +1788,49 @@ function renderFinanzas(){
   document.getElementById('finanzas-movimientos').style.display=finanzasSubTab==='movimientos'?'block':'none';
   document.getElementById('finanzas-promos').style.display=finanzasSubTab==='promos'?'block':'none';
 }
+// ── Filtros de Movimientos ──────────────────────────────────────────────
+let finMovFiltro={tipo:null,sala:null};
+const SALAS_FILTRO=['PartyPoker','Winamax','PokerStars'];
+const TIPOS_MOV=[['ingreso','Ingresos'],['retirada','Retiradas'],['transferencia','Transferencias']];
+// Un movimiento puede tocar DOS salas (ej. una transferencia PartyPoker → Winamax) y debe salir
+// al filtrar por cualquiera de las dos.
+function salasDeMovimiento(m){return [...new Set([resolverSalaCorta(m.origen),resolverSalaCorta(m.destino)].filter(Boolean))]}
+function setMovFiltro(k,v){finMovFiltro[k]=v;renderMovimientos()}
+function limpiarFiltrosMov(){
+  finMovFiltro={tipo:null,sala:null};
+  ['mf-desde','mf-hasta','mf-q'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});
+  renderMovimientos();
+}
+function finPill(label,activo,onclick){
+  return `<button class="pill ${activo?'selected':''}" onclick="${onclick}">${label}</button>`;
+}
 function renderMovimientos(){
   const el=document.getElementById('movimientos-list');
-  if(!allMovimientos.length){el.innerHTML='<div class="empty-state"><p>Sin movimientos.<br>Pulsa + para añadir.</p></div>';return}
-  el.innerHTML=allMovimientos.map(m=>{
+  if(!allMovimientos.length){el.innerHTML='<div class="empty-state"><p>Sin movimientos.<br>Pulsa + para añadir.</p></div>';
+    ['mf-tipos','mf-salas','mf-resumen'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML=''});return}
+  const val=id=>document.getElementById(id)?.value||'';
+  const desde=val('mf-desde'),hasta=val('mf-hasta'),q=val('mf-q').trim().toLowerCase();
+  const base=allMovimientos.filter(m=>(!desde||m.fecha>=desde)&&(!hasta||m.fecha<=hasta)&&
+    (!q||[m.origen,m.destino,m.notas].some(x=>(x||'').toLowerCase().includes(q))));
+  const porSala=m=>!finMovFiltro.sala||salasDeMovimiento(m).includes(finMovFiltro.sala);
+  const porTipo=m=>!finMovFiltro.tipo||m.tipo===finMovFiltro.tipo;
+  const lista=base.filter(m=>porSala(m)&&porTipo(m));
+
+  // Los contadores de cada grupo de botones respetan el OTRO filtro, para ver qué quedaría al pulsar
+  document.getElementById('mf-tipos').innerHTML=
+    finPill('Todos · '+base.filter(porSala).length,finMovFiltro.tipo===null,"setMovFiltro('tipo',null)")+
+    TIPOS_MOV.map(([k,l])=>finPill(l+' · '+base.filter(m=>porSala(m)&&m.tipo===k).length,finMovFiltro.tipo===k,`setMovFiltro('tipo','${k}')`)).join('');
+  document.getElementById('mf-salas').innerHTML=
+    finPill('Todas',finMovFiltro.sala===null,"setMovFiltro('sala',null)")+
+    SALAS_FILTRO.map(sl=>finPill(sl+' · '+base.filter(m=>porTipo(m)&&salasDeMovimiento(m).includes(sl)).length,finMovFiltro.sala===sl,`setMovFiltro('sala','${sl}')`)).join('');
+
+  const suma=t=>lista.filter(m=>m.tipo===t).reduce((a,m)=>a+(m.cantidad||0),0);
+  const ing=suma('ingreso'),ret=suma('retirada'),neto=ing-ret;
+  document.getElementById('mf-resumen').innerHTML=
+    `<b>${lista.length}</b> movimiento${lista.length===1?'':'s'} · Ingresos <b class="up">+${fmtE(ing)}</b> · Retiradas <b class="${ret>0?'down':''}">${ret>0?'-':''}${fmtE(ret)}</b> · Neto <b class="${neto>=0?'up':'down'}">${neto>=0?'+':'-'}${fmtE(Math.abs(neto))}</b>`;
+
+  if(!lista.length){el.innerHTML='<div class="empty-state"><p>Ningún movimiento con estos filtros.</p></div>';return}
+  el.innerHTML=lista.map(m=>{
     const d=new Date(m.fecha+'T00:00:00');
     const f=d.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
     const signo=m.tipo==='ingreso'?'+':m.tipo==='retirada'?'-':'';
@@ -1773,16 +1846,62 @@ function renderMovimientos(){
 // NOTA DE LIMPIEZA: no existía ninguna forma de borrar un movimiento de Spins —
 // solo se podían crear, nunca eliminar. Esto causaba que pruebas/errores quedaran
 // permanentemente en la tabla. Esta función estaba completamente ausente.
+// ── Filtros de Rakeback & Promos ────────────────────────────────────────
+let finPromFiltro={cat:null,sala:null};
+const CAT_PROMO=[['rb_auto','Rakeback automático'],['rb_manual','Rakeback manual'],['carrera','Carreras'],['millas','Millas'],['otros','Otros']];
+function categoriaPromo(p){
+  if(p.tipo==='millas')return 'millas';
+  if(p.tipo==='carrera')return 'carrera';
+  if(p.tipo==='rakeback')return /^Rakeback autom/i.test(p.descripcion||'')?'rb_auto':'rb_manual';
+  return 'otros';
+}
+function setPromFiltro(k,v){finPromFiltro[k]=v;renderPromos()}
+function limpiarFiltrosPromos(){
+  finPromFiltro={cat:null,sala:null};
+  ['pf-desde','pf-hasta'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});
+  renderPromos();
+}
 function renderPromos(){
   const el=document.getElementById('promos-list');
-  if(!allPromociones.length){el.innerHTML='<div class="empty-state"><p>Sin promos registradas.<br>Pulsa + para añadir.</p></div>';return}
-  el.innerHTML=allPromociones.map(p=>{
+  if(!allPromociones.length){el.innerHTML='<div class="empty-state"><p>Sin promos registradas.<br>Pulsa + para añadir.</p></div>';
+    ['pf-cats','pf-salas','pf-resumen'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML=''});return}
+  const val=id=>document.getElementById(id)?.value||'';
+  const desde=val('pf-desde'),hasta=val('pf-hasta');
+  const base=allPromociones.filter(p=>(!desde||p.fecha>=desde)&&(!hasta||p.fecha<=hasta));
+  const porSala=p=>!finPromFiltro.sala||p.sala===finPromFiltro.sala;
+  const porCat=p=>!finPromFiltro.cat||categoriaPromo(p)===finPromFiltro.cat;
+  const lista=base.filter(p=>porSala(p)&&porCat(p));
+  const eur=arr=>arr.filter(p=>p.tipo!=='millas').reduce((a,p)=>a+(p.cantidad||0),0);
+  const mil=arr=>arr.filter(p=>p.tipo==='millas').reduce((a,p)=>a+(p.cantidad||0),0);
+  const fmtTotal=(arr,esMillas)=>esMillas?Math.round(mil(arr)).toLocaleString('es')+' mill.':fmtE(eur(arr));
+
+  // Cada botón de categoría muestra cuánto suma y cuántos registros tiene (respetando sala y fechas)
+  const cats=CAT_PROMO.map(([k,l])=>{
+    const arr=base.filter(p=>porSala(p)&&categoriaPromo(p)===k);
+    return {k,l,arr};
+  }).filter(c=>c.arr.length||finPromFiltro.cat===c.k);
+  document.getElementById('pf-cats').innerHTML=
+    finPill('Todo · '+base.filter(porSala).length,finPromFiltro.cat===null,"setPromFiltro('cat',null)")+
+    cats.map(c=>finPill(`${c.l} · ${c.arr.length} · ${fmtTotal(c.arr,c.k==='millas')}`,finPromFiltro.cat===c.k,`setPromFiltro('cat','${c.k}')`)).join('');
+  document.getElementById('pf-salas').innerHTML=
+    finPill('Todas',finPromFiltro.sala===null,"setPromFiltro('sala',null)")+
+    SALAS_FILTRO.map(sl=>finPill(sl+' · '+base.filter(p=>porCat(p)&&p.sala===sl).length,finPromFiltro.sala===sl,`setPromFiltro('sala','${sl}')`)).join('');
+
+  const tEur=eur(lista),tMil=mil(lista);
+  document.getElementById('pf-resumen').innerHTML=
+    `<b>${lista.length}</b> registro${lista.length===1?'':'s'}`+
+    (lista.some(p=>p.tipo!=='millas')?` · Total <b class="up">+${fmtE(tEur)}</b>`:'')+
+    (lista.some(p=>p.tipo==='millas')?` · <b>${Math.round(tMil).toLocaleString('es')}</b> millas`:'');
+
+  if(!lista.length){el.innerHTML='<div class="empty-state"><p>Ninguna promo con estos filtros.</p></div>';return}
+  const etiqueta=Object.fromEntries(CAT_PROMO);
+  el.innerHTML=lista.map(p=>{
     const d=new Date(p.fecha+'T00:00:00');
     const f=d.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
     const color=SALA_COLOR[p.sala]||'var(--accent)';
     const cantStr=p.tipo==='millas'?Math.round(p.cantidad).toLocaleString('es')+' mill.':'+'+fmtE(p.cantidad);
     return`<div class="promo-row">
-      <div><span class="promo-badge" style="background:${color}20;color:${color}">${p.sala} · ${p.tipo}</span><div class="promo-meta">${f}${p.descripcion?' · '+p.descripcion:''}</div></div>
+      <div><span class="promo-badge" style="background:${color}20;color:${color}">${p.sala} · ${etiqueta[categoriaPromo(p)]}</span><div class="promo-meta">${f}${p.descripcion?' · '+p.descripcion:''}</div></div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="promo-cantidad">${cantStr}</div>
         <button onclick="deletePromo('${p.id}')" style="background:none;border:1px solid var(--border);color:var(--red,#dc2626);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
@@ -2212,77 +2331,73 @@ function calcularSimulador(){
 // es el que usamos) y otro "resumido" sin datos privados (se descarta).
 // El XML no incluye Chips EV — ese dato sigue viniendo de HM3/PT4 y se
 // introduce a mano tras la importación.
+// ── Registro de spins ya importados ─────────────────────────────────────
+// La carpeta de origen es temporal y puede contener spins que ya importaste. Se recuerdan (en
+// este navegador) los sessioncode de los spins GUARDADOS, para no ofrecerlos otra vez ni sumar
+// dos veces sus rivales. Se registran al guardar la sesión, no al leer los archivos.
+const XML_CODES_KEY='spins_xml_codes_v1';
+function xmlCodigosImportados(){
+  try{return new Set(JSON.parse(localStorage.getItem(XML_CODES_KEY)||'[]'))}catch(e){return new Set()}
+}
+function registrarCodigosXml(codes){
+  const set=xmlCodigosImportados(); codes.forEach(c=>{if(c)set.add(String(c))});
+  try{localStorage.setItem(XML_CODES_KEY,JSON.stringify([...set]))}catch(e){console.warn('No se pudo guardar el registro de spins importados',e)}
+}
+let _xmlPendientes=[];            // spins del formulario en curso: se registran al GUARDAR la sesión
+let _xmlNuevos=[],_xmlPrevios=[],_xmlIncluirPrevios=false;
+
+// Lee un archivo y devuelve el spin con lo que hace falta, o null si no es un spin válido
+// (el archivo "resumido/anónimo" no tiene startdate y se descarta).
+function parsearSpinXml(text){
+  const doc=new DOMParser().parseFromString(text,'text/xml');
+  if(doc.querySelector('parsererror'))return null;
+  const sessionEl=doc.querySelector('session'); if(!sessionEl)return null;
+  const g=sessionEl.querySelector('general'); if(!g)return null;
+  const get=tag=>g.querySelector(tag)?.textContent||'';
+  const startdate=get('startdate'); if(!startdate)return null;
+  const miNick=get('nickname');
+  const num=v=>parseInt(String(v||'0').replace(/,/g,''))||0;
+  // Fichas netas contra cada rival, mano a mano (resultado real, sin equity).
+  const rivales={};
+  doc.querySelectorAll('game').forEach(game=>{
+    const jug=Array.from(game.querySelectorAll('general > players > player')).map(p=>({name:p.getAttribute('name'),win:num(p.getAttribute('win')),bet:num(p.getAttribute('bet'))}));
+    const yo=jug.find(j=>j.name===miNick); if(!yo)return;
+    jug.filter(j=>j.name!==miNick).forEach(r=>{
+      const o=rivales[r.name]||(rivales[r.name]={manos:0,fichasNetas:0});
+      o.manos++; o.fichasNetas+=yo.win-yo.bet;
+    });
+  });
+  return {sessioncode:sessionEl.getAttribute('sessioncode'),startdate,
+    totalbuyin:parseMoneyStr(get('totalbuyin')),win:parseMoneyStr(get('win')),
+    durationSec:parseDurationStr(get('duration')),place:parseInt(get('place'))||null,
+    tablename:get('tablename'),rivales};
+}
+
 async function handleXmlImport(fileList){
-  const files=Array.from(fileList||[]);
-  if(!files.length)return;
-  showToast('Leyendo '+files.length+' archivo'+(files.length===1?'':'s')+'...');
+  // Acepta archivos sueltos o una carpeta entera; lo que no sea .xml/.txt se ignora.
+  const files=Array.from(fileList||[]).filter(f=>/\.(xml|txt)$/i.test(f.name));
+  const limpiar=()=>['xml-import-input','xml-import-folder'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  if(!files.length){showToast('No hay archivos .xml en lo seleccionado');limpiar();return}
   const parsed=[];
-  const rivalesEncontrados={}; // acumulado local de esta tanda de archivos
-  for(const f of files){
-    try{
-      const text=await f.text();
-      const doc=new DOMParser().parseFromString(text,'text/xml');
-      if(doc.querySelector('parsererror'))continue;
-      const sessionEl=doc.querySelector('session');
-      if(!sessionEl)continue;
-      const sessioncode=sessionEl.getAttribute('sessioncode');
-      const g=sessionEl.querySelector('general');
-      if(!g)continue;
-      const get=tag=>g.querySelector(tag)?.textContent||'';
-      const startdate=get('startdate'); // solo está en el archivo "completo"
-      if(!startdate)continue; // descarta el archivo resumido/anónimo (sin startdate = sin datos privados)
-      const miNick=get('nickname');
-      const gano=parseInt(get('place'))===1;
-
-      // Recorrer cada mano (<game>) del spin para calcular fichas netas contra cada rival.
-      // No requiere equity ni all-in: solo el resultado real (win) de cada mano, que el
-      // XML siempre incluye con certeza — a diferencia del Chip EV, esto es 100% fiable.
-      doc.querySelectorAll('game').forEach(game=>{
-        const players=game.querySelectorAll('general > players > player');
-        const jugadores=Array.from(players).map(p=>({
-          name:p.getAttribute('name'),
-          win:parseInt(p.getAttribute('win').replace(/,/g,''))||0,
-          bet:parseInt(p.getAttribute('bet').replace(/,/g,''))||0,
-        }));
-        const yo=jugadores.find(j=>j.name===miNick);
-        if(!yo)return; // mano sin datos míos (no debería pasar, pero por seguridad)
-        const miFichasNetas=yo.win-yo.bet;
-        jugadores.filter(j=>j.name!==miNick).forEach(riv=>{
-          if(!rivalesEncontrados[riv.name]) rivalesEncontrados[riv.name]={manos:0,fichasNetas:0,spinsSet:new Set(),spinsGanados:0};
-          rivalesEncontrados[riv.name].manos++;
-          rivalesEncontrados[riv.name].fichasNetas+=miFichasNetas;
-          rivalesEncontrados[riv.name].spinsSet.add(sessioncode);
-        });
-      });
-      // Marcar si gané el spin, para cada rival con el que coincidí en él
-      Object.keys(rivalesEncontrados).forEach(nick=>{
-        if(rivalesEncontrados[nick].spinsSet.has(sessioncode)&&gano) rivalesEncontrados[nick]._ultimoSpinGanado=sessioncode;
-      });
-
-      parsed.push({
-        sessioncode,
-        startdate,
-        totalbuyin:parseMoneyStr(get('totalbuyin')),
-        win:parseMoneyStr(get('win')),
-        durationSec:parseDurationStr(get('duration')),
-        place:parseInt(get('place'))||null, // 1 = ganado el spin (ITM), 2/3 = eliminado
-        tablename:get('tablename'),
-      });
-    }catch(e){ console.error('Error leyendo XML:',f.name,e); }
+  for(let i=0;i<files.length;i+=40){
+    const res=await Promise.all(files.slice(i,i+40).map(async f=>{try{return parsearSpinXml(await f.text())}catch(e){return null}}));
+    res.forEach(r=>{if(r)parsed.push(r)});
+    showToast('Leyendo '+Math.min(i+40,files.length)+'/'+files.length+' archivos…');
   }
-  if(!parsed.length){ showToast('No se pudo leer ningún spin válido de esos archivos'); return; }
-
-  // Descartar duplicados por sessioncode (si subes el mismo spin dos veces)
-  const bySessioncode={};
-  parsed.forEach(p=>{ bySessioncode[p.sessioncode]=p; });
-  const spins=Object.values(bySessioncode);
-
-  await acumularRivales(rivalesEncontrados);
-
-  // Agrupar por "día de póker" (no fecha calendario) + stake, igual que el resto
-  // de la app: una sesión que empieza a las 23:30 y termina 01:30 del día siguiente
-  // cuenta entera como el día en que empezó — igual que si la cargaras a mano.
-  // Regla: si la hora de inicio del spin es antes de las 06:00, se imputa al día anterior.
+  limpiar(); // permite volver a elegir los mismos archivos
+  if(!parsed.length){showToast('No se encontró ningún spin válido en esos archivos');return}
+  const porCodigo={}; parsed.forEach(p=>{porCodigo[p.sessioncode]=p}); // mismo spin repetido = uno solo
+  const reg=xmlCodigosImportados();
+  const todos=Object.values(porCodigo);
+  _xmlNuevos=todos.filter(sp=>!reg.has(String(sp.sessioncode)));
+  _xmlPrevios=todos.filter(sp=>reg.has(String(sp.sessioncode)));
+  _xmlPrevios.forEach(sp=>{sp.yaContado=true}); // sus rivales ya se sumaron: no se vuelven a sumar
+  _xmlIncluirPrevios=false;
+  reconstruirGruposXml();
+}
+// Agrupa por "día de póker" (antes de las 06:00 cuenta para el día anterior) y stake
+function reconstruirGruposXml(){
+  const spins=_xmlIncluirPrevios?[..._xmlNuevos,..._xmlPrevios]:_xmlNuevos;
   const grupos={};
   spins.forEach(sp=>{
     const fecha=diaPoker(sp.startdate);
@@ -2290,9 +2405,26 @@ async function handleXmlImport(fileList){
     if(!grupos[key])grupos[key]={fecha,stake:sp.totalbuyin,spins:[]};
     grupos[key].spins.push(sp);
   });
+  mostrarResumenImportacion(Object.values(grupos),spins.length);
+}
+function toggleXmlIncluirPrevios(){_xmlIncluirPrevios=!_xmlIncluirPrevios;reconstruirGruposXml()}
 
-  mostrarResumenImportacion(Object.values(grupos), spins.length);
-  document.getElementById('xml-import-input').value=''; // permite reimportar el mismo archivo si hace falta
+// Al GUARDAR una sesión importada: se registran sus spins y se suman los rivales (solo de los
+// spins que nunca se habían contado). Antes los rivales se sumaban al leer los archivos, aunque
+// luego se cancelara la importación.
+async function finalizarImportacionXml(){
+  const pend=_xmlPendientes; _xmlPendientes=[];
+  if(!pend.length)return;
+  registrarCodigosXml(pend.map(sp=>sp.sessioncode));
+  const nuevos={};
+  pend.filter(sp=>!sp.yaContado).forEach(sp=>{
+    Object.entries(sp.rivales).forEach(([nick,r])=>{
+      const o=nuevos[nick]||(nuevos[nick]={manos:0,fichasNetas:0,spinsSet:new Set(),spinsGanados:0});
+      o.manos+=r.manos; o.fichasNetas+=r.fichasNetas; o.spinsSet.add(sp.sessioncode);
+      if(sp.place===1)o.spinsGanados++;
+    });
+  });
+  await acumularRivales(nuevos);
 }
 
 // Convierte "2026-07-24 01:30:00" en la fecha de "día de póker" correspondiente:
@@ -2343,7 +2475,7 @@ async function acumularRivales(nuevos){
       const n=nuevos[nick];
       const ex=porNick[nick];
       const spinsNuevos=n.spinsSet.size;
-      const spinsGanadosNuevos=n._ultimoSpinGanado?1:0; // simplificado: se cuenta al menos 1 si hubo victoria en esta tanda
+      const spinsGanadosNuevos=n.spinsGanados||0;
       return{
         nick,
         manos:(ex?.manos||0)+n.manos,
@@ -2437,6 +2569,7 @@ function renderXmlImportModal(totalSpins){
     const itmPct=gr.spins.length?(itm/gr.spins.length*100).toFixed(0):0;
     const fechaFmt=new Date(gr.fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
     const checked=_xmlGruposSeleccionados.has(idx);
+    const yaHay=allSesiones.some(x=>x.sala==='PartyPoker'&&x.fecha===gr.fecha);
     return`<label style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer">
       <input type="checkbox" ${checked?'checked':''} onchange="toggleXmlGrupoSel(${idx})" style="margin-top:3px;width:16px;height:16px;accent-color:var(--accent)">
       <div style="flex:1">
@@ -2445,6 +2578,7 @@ function renderXmlImportModal(totalSpins){
           <span style="font-weight:600;color:${gan-apost>=0?'#16a34a':'#dc2626'}">${(gan-apost>=0?'+':'')+(gan-apost).toFixed(2)}€</span>
         </div>
         <div style="color:var(--muted);font-size:11px;margin-top:2px">${mins}min · ITM ${itm}/${gr.spins.length} (${itmPct}%)</div>
+        ${yaHay?'<div style="color:#b8860b;font-size:11px;margin-top:2px">⚠ Ya hay una sesión de PartyPoker guardada este día: posible duplicado</div>':''}
       </div>
     </label>`;
   }).join('');
@@ -2464,7 +2598,8 @@ function renderXmlImportModal(totalSpins){
           en una sola sesión con varios niveles — <strong>el EV € no viene en estos archivos</strong>:
           escríbelo en cada stake (desde PokerTracker) y el Chips EV se calcula solo.
         </p>
-        <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">${resumenHtml}</div>
+        ${_xmlPrevios.length?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${_xmlIncluirPrevios?'Se incluyen':'Se han omitido'} <strong>${_xmlPrevios.length}</strong> spin${_xmlPrevios.length===1?'':'s'} ya importado${_xmlPrevios.length===1?'':'s'} antes. <a href="#" onclick="toggleXmlIncluirPrevios();return false" style="color:var(--accent)">${_xmlIncluirPrevios?'Ocultarlos':'Incluirlos'}</a></div>`:''}
+        <div style="max-height:40vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">${resumenHtml||'<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">No hay spins nuevos para importar.</div>'}</div>
         <button onclick="aplicarImportacionXmlCombinado()" ${nSel===0?'disabled':''}
           style="background:${nSel===0?'var(--border)':'var(--accent)'};color:#fff;border:none;border-radius:8px;padding:10px;font-family:inherit;font-size:13px;cursor:${nSel===0?'not-allowed':'pointer'};width:100%">
           ${btnTexto}
@@ -2511,6 +2646,7 @@ function aplicarImportacionXmlCombinado(){
   // ITM total, duración real (inicio del primer spin de cualquier stake → fin del
   // último de cualquier stake) y hora de fin real.
   const todosLosSpins=grupos.flatMap(g=>g.spins);
+  _xmlPendientes=todosLosSpins; // se registran al guardar la sesión
   const itmTotal=todosLosSpins.filter(s=>s.place===1).length;
   const totalMinutos=duracionRealMinutos(todosLosSpins);
   const finales=todosLosSpins.map(s=>{
@@ -2554,6 +2690,7 @@ function aplicarImportacionXmlCombinado(){
 
 // ── Session Form ──────────────────────────────────────────────
 function openSesionModal(sesion=null){
+  _xmlPendientes=[];
   editingSesionId=sesion?.id||null;
   sesionDateManuallyChanged=false;
   document.getElementById('sesion-modal-title').textContent=sesion?'Editar sesión':'Nueva sesión';
@@ -2871,6 +3008,7 @@ async function saveSesion(){
       showToast('Sesión actualizada ✓');
     } else {
       await sb.from('spins_sesiones').insert([payload]);
+      await finalizarImportacionXml();
       if(STANDARD_SALAS.includes(sala)){
         const caj=cajeros.find(c=>c.sala===sala&&c.tipo==='real');
         if(caj){
